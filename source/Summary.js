@@ -94,6 +94,7 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 		thinking: { max: 0, avg: 0 },
 		subagent: { max: 0, avg: 0 }
 	};
+	let timeLabels = [];
 
 	if (timestamps.length > 0) {
 		const parseTime = (timeStr) => {
@@ -186,6 +187,52 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 				});
 			});
 		});
+
+		// Calculate time axis labels
+		const sparklineWidth = activityByType.assistant.length;
+		const timestampWidth = 5; // "HH:MM" format
+
+		// Determine how many intermediate timestamps we can fit (0-3)
+		// Need space for timestamps: start (5) + end (5) + intermediate (5 each)
+		// Plus spacing between them (~7 chars minimum)
+		let numIntermediateTimestamps = 0;
+		const minSpacing = 7;
+
+		if (sparklineWidth >= 2 * timestampWidth + 3 * timestampWidth + 4 * minSpacing) {
+			numIntermediateTimestamps = 3; // Can fit 5 total timestamps
+		} else if (sparklineWidth >= 2 * timestampWidth + 2 * timestampWidth + 3 * minSpacing) {
+			numIntermediateTimestamps = 2; // Can fit 4 total timestamps
+		} else if (sparklineWidth >= 2 * timestampWidth + timestampWidth + 2 * minSpacing) {
+			numIntermediateTimestamps = 1; // Can fit 3 total timestamps
+		}
+		// else 0 intermediate (just start and end)
+
+		const totalTimestamps = 2 + numIntermediateTimestamps;
+
+		// Calculate timestamp positions and values
+		timeLabels = [];
+		for (let i = 0; i < totalTimestamps; i++) {
+			const fraction = i / (totalTimestamps - 1);
+			const timeSeconds = startSeconds + Math.round(fraction * (endSeconds - startSeconds));
+			const hours = Math.floor(timeSeconds / 3600) % 24;
+			const minutes = Math.floor((timeSeconds % 3600) / 60);
+			const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+			// Calculate position, accounting for timestamp width
+			let position;
+			if (i === 0) {
+				// First timestamp: left-aligned at start
+				position = 0;
+			} else if (i === totalTimestamps - 1) {
+				// Last timestamp: right-aligned at end
+				position = sparklineWidth - timestampWidth;
+			} else {
+				// Middle timestamps: centered at their fractional position
+				position = Math.round(fraction * (sparklineWidth - 1)) - Math.floor(timestampWidth / 2);
+			}
+
+			timeLabels.push({ time: timeStr, position: Math.max(0, position) });
+		}
 	}
 
 	return (
@@ -293,6 +340,15 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 										</Text>
 									))}
 								</Box>
+
+								{/* Time axis */}
+								{timeLabels.length > 0 && (
+									<Box marginTop={1} justifyContent="space-between">
+										{timeLabels.map((label, idx) => (
+											<Text key={`time-${idx}`} dimColor>{label.time}</Text>
+										))}
+									</Box>
+								)}
 
 								{/* Stats labels below sparklines */}
 								<Box marginTop={1} justifyContent="flex-end">

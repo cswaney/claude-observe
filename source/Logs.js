@@ -198,6 +198,9 @@ export default function Logs({width = 80, logs = [], sessionId = null, onSession
 		subagent: true,
 	});
 	const [savedFilters, setSavedFilters] = useState(null); // Store filters before entering agent view
+	const [searchMode, setSearchMode] = useState(false); // Whether we're in search input mode
+	const [searchQuery, setSearchQuery] = useState(''); // Current search query being typed
+	const [activeSearch, setActiveSearch] = useState(''); // Active search filter applied to logs
 
 	// Scan for projects and sessions on mount
 	useEffect(() => {
@@ -267,11 +270,49 @@ export default function Logs({width = 80, logs = [], sessionId = null, onSession
 		setCollapsedStates(initial);
 	}, [logs, agentViewData]);
 
+	// Parse search query into field filters
+	// Format: "field:value field2:value2" (space-separated)
+	const parseSearchQuery = (query) => {
+		if (!query.trim()) return [];
+		const filters = [];
+		const parts = query.match(/(\w+):([^\s]+)/g) || [];
+		parts.forEach(part => {
+			const [field, value] = part.split(':');
+			filters.push({ field: field.toLowerCase(), value: value.toLowerCase() });
+		});
+		return filters;
+	};
+
+	// Check if log matches search filters
+	const matchesSearch = (log, searchFilters) => {
+		if (searchFilters.length === 0) return true;
+
+		return searchFilters.every(filter => {
+			switch (filter.field) {
+				case 'type':
+					return log.type.toLowerCase().includes(filter.value);
+				case 'content':
+					return log.content?.toLowerCase().includes(filter.value);
+				case 'agent':
+					return log.agentId?.toLowerCase().includes(filter.value);
+				case 'tool':
+					return log.toolName?.toLowerCase().includes(filter.value);
+				default:
+					return true;
+			}
+		});
+	};
+
 	// Use agent logs if in agent view, otherwise use session logs
 	const currentLogs = agentViewData ? agentViewData.logs : logs;
 
-	// Filter logs based on active filters
-	const filteredLogs = currentLogs.filter(log => activeFilters[log.type]);
+	// Parse active search filters
+	const searchFilters = parseSearchQuery(activeSearch);
+
+	// Filter logs based on active filters and search
+	const filteredLogs = currentLogs.filter(log =>
+		activeFilters[log.type] && matchesSearch(log, searchFilters)
+	);
 
 	// Memoize content lines for detail view (only when in detail mode)
 	const selectedLog = filteredLogs[selectedIndex];
@@ -325,6 +366,43 @@ export default function Logs({width = 80, logs = [], sessionId = null, onSession
 
 	// Handle keyboard input
 	useInput((input, key) => {
+		// Handle search mode input
+		if (searchMode) {
+			if (key.return) {
+				// Apply search
+				setActiveSearch(searchQuery);
+				setSearchMode(false);
+				return;
+			} else if (key.escape) {
+				// Cancel search
+				setSearchQuery('');
+				setSearchMode(false);
+				return;
+			} else if (key.backspace || key.delete) {
+				// Remove last character
+				setSearchQuery(prev => prev.slice(0, -1));
+				return;
+			} else if (input && !key.ctrl && !key.meta) {
+				// Add character to query
+				setSearchQuery(prev => prev + input);
+				return;
+			}
+			return; // Ignore other keys in search mode
+		}
+
+		// Enter search mode with '/'
+		if (input === '/' && viewMode === 'list') {
+			setSearchMode(true);
+			setSearchQuery('');
+			return;
+		}
+
+		// Clear search with Escape (when not in search mode but search is active)
+		if (key.escape && activeSearch && viewMode === 'list') {
+			setActiveSearch('');
+			return;
+		}
+
 		// Handle navigation within agent view
 		if (agentViewData) {
 			// Escape: return to welcome from any mode
@@ -1013,9 +1091,22 @@ export default function Logs({width = 80, logs = [], sessionId = null, onSession
 					)}
 				</Box>
 			</TitledBox>
-			<Box>
+			{searchMode && (
+				<Box marginTop={1}>
+					<Text>Search: {searchQuery}</Text>
+					<Text dimColor> (Enter to apply, Esc to cancel)</Text>
+				</Box>
+			)}
+			{!searchMode && activeSearch && (
+				<Box marginTop={1}>
+					<Text dimColor>Active search: </Text>
+					<Text>{activeSearch}</Text>
+					<Text dimColor> (Esc to clear)</Text>
+				</Box>
+			)}
+			<Box marginTop={searchMode || activeSearch ? 0 : 1}>
 				<Text dimColor>
-					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter: Expand/Collapse | →: Detail | a/c: All | 1-5: Filter{filterText} | {selectedIndex + 1}/{filteredLogs.length}
+					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter: Expand/Collapse | →: Detail | /: Search | a/c: All | 1-5: Filter{filterText} | {selectedIndex + 1}/{filteredLogs.length}
 				</Text>
 			</Box>
 		</Box>

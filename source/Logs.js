@@ -350,7 +350,7 @@ export default function Logs({width = 80, logs = [], sessionId = null, onSession
 					return;
 				} else if (viewMode === 'list') {
 					setAgentViewData(null);
-					setSelectedIndex(0);
+					// Don't reset selectedIndex - stay on the agent log entry
 					// Restore saved filters when exiting agent view
 					if (savedFilters) {
 						setActiveFilters(savedFilters);

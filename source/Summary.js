@@ -2,9 +2,59 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
 
-export default function Summary({width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session'}) {
+export default function Summary({width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null}) {
 	// Calculate statistics from logs
 	const totalUsage = logs.reduce((sum, log) => sum + (log.usage || 0), 0);
+
+	// Calculate token distribution by type
+	const tokensByType = {
+		user: 0,
+		assistant: 0,
+		tool: 0,
+		thinking: 0,
+		subagent: 0,
+	};
+
+	logs.forEach(log => {
+		const usage = log.usage || 0;
+		if (log.type === 'user') {
+			tokensByType.user += usage;
+		} else if (log.type === 'assistant') {
+			tokensByType.assistant += usage;
+		} else if (log.type === 'tool') {
+			tokensByType.tool += usage;
+		} else if (log.type === 'thinking') {
+			tokensByType.thinking += usage;
+		} else if (log.type === 'subagent') {
+			tokensByType.subagent += usage;
+		}
+	});
+
+	// Prepare data for chart visualization (matching AGENT_COLORS from Logs.js)
+	const chartData = [
+		{ label: 'Assistant', value: tokensByType.assistant, color: '#2ecc71' },
+		{ label: 'Tool', value: tokensByType.tool, color: '#3498db' },
+		{ label: 'Thinking', value: tokensByType.thinking, color: '#9b59b6' },
+		{ label: 'Agents', value: tokensByType.subagent, color: 'red' },
+	];
+
+	// Create single stacked bar chart
+	const maxBarWidth = width - 2;
+	const createStackedBar = (data, totalValue, barWidth) => {
+		const segments = data.map(item => ({
+			...item,
+			percentage: (item.value / totalValue) * 100,
+			width: Math.round((item.value / totalValue) * barWidth)
+		}));
+
+		// Adjust for rounding errors to ensure total width matches barWidth
+		const totalWidth = segments.reduce((sum, seg) => sum + seg.width, 0);
+		if (totalWidth < barWidth && segments.length > 0) {
+			segments[segments.length - 1].width += (barWidth - totalWidth);
+		}
+
+		return segments;
+	};
 
 	// Calculate duration (elapsed time between first and last timestamp)
 	const timestamps = logs.map(log => log.timestamp).filter(Boolean);
@@ -31,20 +81,128 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 	// Count agent calls (subagent starts only, not ends)
 	const agentCalls = logs.filter(log => log.type === 'subagent' && !log.isLast).length;
 
+	// Calculate activity over time (tokens per minute) by type
+	const activityByType = {
+		assistant: [],
+		tool: [],
+		thinking: [],
+		subagent: []
+	};
+	const activityStats = {
+		assistant: { max: 0, avg: 0 },
+		tool: { max: 0, avg: 0 },
+		thinking: { max: 0, avg: 0 },
+		subagent: { max: 0, avg: 0 }
+	};
+
+	if (timestamps.length > 0) {
+		const parseTime = (timeStr) => {
+			const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+			return hours * 3600 + minutes * 60 + seconds;
+		};
+
+		const startSeconds = parseTime(timestamps[0]);
+		const endSeconds = parseTime(timestamps[timestamps.length - 1]);
+		const durationMinutes = Math.ceil((endSeconds - startSeconds) / 60);
+
+		// Create buckets for each minute and type
+		const bucketsByType = {
+			assistant: Array(Math.max(durationMinutes, 1)).fill(0),
+			tool: Array(Math.max(durationMinutes, 1)).fill(0),
+			thinking: Array(Math.max(durationMinutes, 1)).fill(0),
+			subagent: Array(Math.max(durationMinutes, 1)).fill(0)
+		};
+
+		// Aggregate tokens by minute and type
+		logs.forEach((log, idx) => {
+			if (log.timestamp && log.usage) {
+				const logSeconds = parseTime(log.timestamp);
+				const minuteIndex = Math.floor((logSeconds - startSeconds) / 60);
+				if (minuteIndex >= 0 && minuteIndex < bucketsByType.assistant.length) {
+					if (log.type === 'assistant') {
+						bucketsByType.assistant[minuteIndex] += log.usage;
+					} else if (log.type === 'tool') {
+						bucketsByType.tool[minuteIndex] += log.usage;
+					} else if (log.type === 'thinking') {
+						bucketsByType.thinking[minuteIndex] += log.usage;
+					} else if (log.type === 'subagent' && !log.isLast) {
+						// For agents, spread tokens across their duration
+						// Find the end entry for this agent
+						const endEntry = logs.find(l => l.type === 'subagent' && l.agentId === log.agentId && l.isLast);
+						if (endEntry && endEntry.timestamp) {
+							const endSeconds = parseTime(endEntry.timestamp);
+							const startMinute = Math.floor((logSeconds - startSeconds) / 60);
+							const endMinute = Math.floor((endSeconds - startSeconds) / 60);
+							const durationMinutes = Math.max(endMinute - startMinute, 1);
+							const tokensPerMinute = log.usage / durationMinutes;
+
+							// Distribute tokens across the duration
+							for (let m = startMinute; m <= endMinute; m++) {
+								if (m >= 0 && m < bucketsByType.subagent.length) {
+									bucketsByType.subagent[m] += tokensPerMinute;
+								}
+							}
+						} else {
+							// Fallback: add to single minute if no end found
+							bucketsByType.subagent[minuteIndex] += log.usage;
+						}
+					}
+				}
+			}
+		});
+
+		// Create activity data for each type
+		const blockChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+		['assistant', 'tool', 'thinking', 'subagent'].forEach(type => {
+			const buckets = bucketsByType[type];
+			const maxTokens = Math.max(...buckets, 1);
+			const nonZeroBuckets = buckets.filter(t => t > 0);
+			const avgTokens = nonZeroBuckets.length > 0
+				? nonZeroBuckets.reduce((sum, t) => sum + t, 0) / nonZeroBuckets.length
+				: 0;
+
+			activityStats[type] = {
+				max: maxTokens,
+				avg: Math.round(avgTokens)
+			};
+
+			buckets.forEach((tokens, idx) => {
+				// Use log scale for better variation at lower values
+				// intensity = log(tokens + 1) / log(maxTokens + 1)
+				// This compresses high values and expands low values
+				let charIndex;
+				if (tokens === 0) {
+					charIndex = 0; // Use ▁ for zero
+				} else {
+					const intensity = Math.log(tokens + 1) / Math.log(maxTokens + 1);
+					charIndex = Math.min(Math.floor(intensity * blockChars.length), blockChars.length - 1);
+				}
+				activityByType[type].push({
+					minute: idx,
+					tokens,
+					char: blockChars[charIndex],
+					intensity: tokens === 0 ? 0 : Math.log(tokens + 1) / Math.log(maxTokens + 1)
+				});
+			});
+		});
+	}
+
 	return (
 		<Box flexDirection="column" width={width}>
 			<TitledBox
 				borderStyle="single"
 				borderColor="gray"
 				padding={1}
-				titles={['Summary']}
+				titles={[title || 'Summary']}
 			>
 				<Box flexDirection="column">
-					<Box>
-						<Text bold>{project}</Text>
-						<Text dimColor> / </Text>
-						<Text>{session}</Text>
-					</Box>
+					{startDatetime && (
+						<Box>
+							<Text dimColor>Last Modified: </Text>
+							<Text dimColor>{startDatetime}</Text>
+						</Box>
+					)}
 					<Box marginTop={1} gap={3}>
 						<Box>
 							<Text dimColor>Total Usage: </Text>
@@ -63,6 +221,86 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 							<Text>{agentCalls}</Text>
 						</Box>
 					</Box>
+					{totalUsage > 0 && chartData.length > 0 && (
+						<Box flexDirection="column" marginTop={1}>
+							<Text dimColor>Token Distribution:</Text>
+							<Box flexDirection="column" marginTop={1}>
+								{/* Single stacked bar */}
+								<Box>
+									{createStackedBar(chartData, totalUsage, maxBarWidth).map((segment, idx) => (
+										<Text key={`segment-${idx}`} color={segment.color}>
+											{'█'.repeat(segment.width)}
+										</Text>
+									))}
+								</Box>
+								{/* Legend */}
+								<Box flexDirection="column" marginTop={1}>
+									{chartData.map((item, idx) => {
+										const percentage = (item.value / totalUsage) * 100;
+										return (
+											<Box key={`legend-${idx}`} gap={1}>
+												<Text color={item.color}>█</Text>
+												<Box width={12}>
+													<Text>{item.label}:</Text>
+												</Box>
+												<Box width={8}>
+													<Text dimColor>{percentage.toFixed(1)}%</Text>
+												</Box>
+												<Text dimColor>({item.value.toLocaleString()} tokens)</Text>
+											</Box>
+										);
+									})}
+								</Box>
+							</Box>
+						</Box>
+					)}
+					{activityByType.assistant.length > 0 && (
+						<Box flexDirection="column" marginTop={1}>
+							<Text dimColor>Activity (tokens/min, log scale):</Text>
+							<Box flexDirection="column" marginTop={1}>
+								{/* Assistant activity */}
+								<Box>
+									{activityByType.assistant.map((point, idx) => (
+										<Text key={`assistant-${idx}`} color="#2ecc71">
+											{point.char}
+										</Text>
+									))}
+								</Box>
+
+								{/* Tool activity */}
+								<Box marginTop={1}>
+									{activityByType.tool.map((point, idx) => (
+										<Text key={`tool-${idx}`} color="#3498db">
+											{point.char}
+										</Text>
+									))}
+								</Box>
+
+								{/* Thinking activity */}
+								<Box marginTop={1}>
+									{activityByType.thinking.map((point, idx) => (
+										<Text key={`thinking-${idx}`} color="#9b59b6">
+											{point.char}
+										</Text>
+									))}
+								</Box>
+
+								{/* Agent activity */}
+								<Box marginTop={1}>
+									{activityByType.subagent.map((point, idx) => (
+										<Text key={`subagent-${idx}`} color="red">
+											{point.char}
+										</Text>
+									))}
+								</Box>
+
+								{/* Stats labels below sparklines */}
+								<Box marginTop={1} justifyContent="flex-end">
+									<Text dimColor>Max: {Math.max(activityStats.assistant.max, activityStats.tool.max, activityStats.thinking.max, activityStats.subagent.max).toLocaleString()}, Avg: {Math.round((activityStats.assistant.avg + activityStats.tool.avg + activityStats.thinking.avg + activityStats.subagent.avg) / 4).toLocaleString()}</Text>
+								</Box>
+							</Box>
+						</Box>
+					)}
 				</Box>
 			</TitledBox>
 		</Box>

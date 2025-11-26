@@ -18,6 +18,8 @@
 	"dependencies": {
 		"@mishieck/ink-titled-box": "^0.3.0",
 		"ink": "^6.5.1",
+		"ink-big-text": "^2.0.0",
+		"ink-gradient": "^3.0.0",
 		"meow": "^11.0.0",
 		"react": "^19.2.0"
 	},

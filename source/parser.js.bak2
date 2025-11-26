@@ -77,11 +77,8 @@ export function parseLogFile(filePath) {
 						type: 'tool',
 						timestamp: formatTimestamp(entry.timestamp),
 						content: `${content.name}`,
-						isoTimestamp: entry.timestamp,
 						collapsed: true,
 						usage: getTotalUsage(message.usage),
-						toolName: content.name,
-						toolInput: content.input,
 					});
 				}
 				// Note: tool_result will be handled separately if needed
@@ -115,23 +112,6 @@ function parseAgentFile(filePath) {
 	const firstTimestamp = timestamps[0];
 	const lastTimestamp = timestamps[timestamps.length - 1];
 
-	// Calculate total token usage for this agent
-	let totalUsage = 0;
-	for (const entry of entries) {
-		// Skip summary and other non-message entries
-		if (entry.type === 'summary' || entry.type === 'file-history-snapshot' || entry.type === 'queue-operation') {
-			continue;
-		}
-
-		// Sum up usage from user and assistant messages
-		if (entry.type === 'user' || entry.type === 'assistant') {
-			const message = entry.message;
-			if (message && message.usage) {
-				totalUsage += getTotalUsage(message.usage);
-			}
-		}
-	}
-
 	// Create agent start entry
 	logs.push({
 		uuid: `${agentId}-start`,
@@ -140,7 +120,7 @@ function parseAgentFile(filePath) {
 		agentId: agentId,
 		content: `Agent ${agentId} started`,
 		collapsed: true,
-		usage: totalUsage,
+		usage: 0,
 		isLast: false,
 	});
 
@@ -152,7 +132,7 @@ function parseAgentFile(filePath) {
 		agentId: agentId,
 		content: `Agent ${agentId} completed`,
 		collapsed: true,
-		usage: 0, // Only count usage once (in start entry)
+		usage: 0,
 		isLast: true,
 	});
 

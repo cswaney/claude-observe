@@ -43,4 +43,5 @@ where `query` is a JSON query string, e.g.,
 }
 ```
 
-means "find any message that matches this structure".
+means "find any message that matches this structure". This command returns the matches logs "as-is",
+i.e., as jsonl-formatted strings.

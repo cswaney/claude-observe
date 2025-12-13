@@ -1,6 +1,6 @@
 import React from 'react';
-import {Box, Text} from 'ink';
-import {TitledBox} from '@mishieck/ink-titled-box';
+import { Box, Text } from 'ink';
+import { TitledBox } from '@mishieck/ink-titled-box';
 import Summary from './Summary.js';
 import LogsList from './LogsList.js';
 
@@ -50,53 +50,76 @@ export default function Session({
 
 	return (
 		<Box flexDirection="column" width={width}>
-			{/* Summary Component */}
-			<Summary
-				width={width}
-				logs={summaryLogs}
-				project={project}
-				session={sessionId}
-				startDatetime={startDatetime}
-				title={summaryTitle}
-			/>
-
-			{/* Logs List */}
 			<TitledBox
+				flexDirection="column"
+				width={width}
 				borderStyle="single"
 				borderColor="gray"
 				padding={1}
-				key={listViewKey}
-				titles={[listViewTitle]}
+				titles={[sessionId ? `Session: ${sessionId}` : 'Session']}
 			>
-				<Box flexDirection="column">
-					{hasLogsAbove && (
-						<Text dimColor>
-							... {startIndex} more above ...
-						</Text>
-					)}
-					<LogsList
-						width={width}
-						logs={visibleLogs}
-						selectedIndex={selectedIndex - startIndex}
-						collapsedStates={collapsedStates}
-					/>
-					{hasLogsBelow && (
-						<Text dimColor>
-							... {filteredLogs.length - endIndex} more below ...
-						</Text>
-					)}
-				</Box>
+
+				<Summary
+					width={width}
+					logs={summaryLogs}
+					project={project}
+					session={sessionId}
+					startDatetime={startDatetime}
+					title={summaryTitle}
+				/>
+
+				{/* Logs List */}
+				{/* <TitledBox
+					borderStyle="single"
+					borderColor="gray"
+					padding={1}
+					key={listViewKey}
+					titles={["Logs"]}
+				>
+					<Box flexDirection="column">
+						{hasLogsAbove && (
+							<Text dimColor>
+								... {startIndex} more above ...
+							</Text>
+						)}
+						<LogsList
+							width={width}
+							logs={visibleLogs}
+							selectedIndex={selectedIndex - startIndex}
+							collapsedStates={collapsedStates}
+						/>
+						{hasLogsBelow && (
+							<Text dimColor>
+								... {filteredLogs.length - endIndex} more below ...
+							</Text>
+						)}
+					</Box>
+				</TitledBox> */}
+				<LogsList
+					width={width}
+					logs={visibleLogs}
+					selectedIndex={selectedIndex - startIndex}
+					collapsedStates={collapsedStates}
+					listViewKey={listViewKey}
+					hasLogsAbove={hasLogsAbove}
+					hasLogsBelow={hasLogsBelow}
+					filteredLogs={filteredLogs}
+					startIndex={startIndex}
+					endIndex={endIndex}
+				>
+
+				</LogsList>
 			</TitledBox>
 
 			{/* Search Input Display */}
 			{searchMode && (
-				<Box marginTop={1}>
+				<Box justifyContent="center" marginTop={1}>
 					<Text>Search: {searchQuery}</Text>
 					<Text dimColor> (Enter to apply, Esc to cancel)</Text>
 				</Box>
 			)}
 			{!searchMode && activeSearch && (
-				<Box marginTop={1}>
+				<Box justifyContent="center" marginTop={1}>
 					<Text dimColor>Active search: </Text>
 					<Text>{activeSearch}</Text>
 					<Text dimColor> (Esc to clear)</Text>
@@ -104,7 +127,7 @@ export default function Session({
 			)}
 
 			{/* Help Text */}
-			<Box marginTop={searchMode || activeSearch ? 0 : 1}>
+			<Box justifyContent="center" marginTop={searchMode || activeSearch ? 0 : 1}>
 				<Text dimColor>
 					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter: Expand/Collapse | →: Detail | /: Search | a/c: All | 1-5: Filter{filterText} | {selectedIndex + 1}/{filteredLogs.length}
 				</Text>

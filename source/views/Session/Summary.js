@@ -1,8 +1,139 @@
 import React from 'react';
-import {Box, Text} from 'ink';
-import {TitledBox} from '@mishieck/ink-titled-box';
+import { Box, Text } from 'ink';
+import { TitledBox } from '@mishieck/ink-titled-box';
 
-export default function Summary({width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null}) {
+
+function TokenDistribution({ data, totalUsage, maxWidth }) {
+
+	const createStackedBar = (data, totalValue, barWidth) => {
+		const segments = data.map(item => ({
+			...item,
+			percentage: (item.value / totalValue) * 100,
+			width: Math.round((item.value / totalValue) * barWidth)
+		}));
+
+		// Adjust for rounding errors to ensure total width matches barWidth
+		const totalWidth = segments.reduce((sum, seg) => sum + seg.width, 0);
+		if (totalWidth < barWidth && segments.length > 0) {
+			segments[segments.length - 1].width += (barWidth - totalWidth);
+		}
+
+		return segments;
+	};
+
+	return <TitledBox
+		borderStyle="single"
+		borderColor="gray"
+		padding={1}
+		titles={["Usage"]}
+		marginTop={1}
+	>
+		{totalUsage > 0 && data.length > 0 && (
+			<Box flexDirection="column">
+
+				<Box>
+					{createStackedBar(data, totalUsage, maxWidth - 6).map((segment, idx) => (
+						<Text key={`segment-${idx}`} color={segment.color}>
+							{'█'.repeat(segment.width)}
+						</Text>
+					))}
+				</Box>
+
+				<Box
+					justifyContent="center"
+					marginTop={1}
+					gap={2}
+				>
+					{data.map((item, idx) => {
+						const percentage = (item.value / totalUsage) * 100;
+						return (
+							<Box
+								// flexGrow={1}
+								key={`legend-${idx}`}
+								gap={1}
+							>
+								<Text color={item.color}>█</Text>
+								<Box>
+									<Text>{item.label}:</Text>
+								</Box>
+								<Box>
+									<Text dimColor>{percentage.toFixed(1)}%</Text>
+								</Box>
+								<Text dimColor>({item.value.toLocaleString()} tokens)</Text>
+							</Box>
+						);
+					})}
+				</Box>
+			</Box>
+		)}
+	</TitledBox>
+}
+
+function ActivityChart({ activityByType, activityStats, timeLabels }) {
+	return <TitledBox
+		borderStyle="single"
+		borderColor="gray"
+		padding={1}
+		marginTop={1}
+		titles={["Activity (tokens/min, log scale)"]}
+	>
+		{activityByType.assistant.length > 0 && (
+			<Box flexDirection="column" marginTop={1}>
+				{/* Assistant activity */}
+				<Box>
+					{activityByType.assistant.map((point, idx) => (
+						<Text key={`assistant-${idx}`} color="#2ecc71">
+							{point.char}
+						</Text>
+					))}
+				</Box>
+
+				{/* Tool activity */}
+				<Box marginTop={1}>
+					{activityByType.tool.map((point, idx) => (
+						<Text key={`tool-${idx}`} color="#3498db">
+							{point.char}
+						</Text>
+					))}
+				</Box>
+
+				{/* Thinking activity */}
+				<Box marginTop={1}>
+					{activityByType.thinking.map((point, idx) => (
+						<Text key={`thinking-${idx}`} color="#9b59b6">
+							{point.char}
+						</Text>
+					))}
+				</Box>
+
+				{/* Agent activity */}
+				<Box marginTop={1}>
+					{activityByType.subagent.map((point, idx) => (
+						<Text key={`subagent-${idx}`} color="red">
+							{point.char}
+						</Text>
+					))}
+				</Box>
+
+				{/* Time axis */}
+				{timeLabels.length > 0 && (
+					<Box marginTop={1} justifyContent="space-between">
+						{timeLabels.map((label, idx) => (
+							<Text key={`time-${idx}`} dimColor>{label.time}</Text>
+						))}
+					</Box>
+				)}
+
+				{/* Stats labels below sparklines */}
+				<Box marginTop={1} justifyContent="flex-end">
+					<Text dimColor>Max: {Math.max(activityStats.assistant.max, activityStats.tool.max, activityStats.thinking.max, activityStats.subagent.max).toLocaleString()}, Avg: {Math.round((activityStats.assistant.avg + activityStats.tool.avg + activityStats.thinking.avg + activityStats.subagent.avg) / 4).toLocaleString()}</Text>
+				</Box>
+			</Box>
+		)}
+	</TitledBox>
+}
+
+export default function Summary({ width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null }) {
 	// Calculate statistics from logs
 	const totalUsage = logs.reduce((sum, log) => sum + (log.usage || 0), 0);
 
@@ -40,21 +171,6 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 
 	// Create single stacked bar chart
 	const maxBarWidth = width - 2;
-	const createStackedBar = (data, totalValue, barWidth) => {
-		const segments = data.map(item => ({
-			...item,
-			percentage: (item.value / totalValue) * 100,
-			width: Math.round((item.value / totalValue) * barWidth)
-		}));
-
-		// Adjust for rounding errors to ensure total width matches barWidth
-		const totalWidth = segments.reduce((sum, seg) => sum + seg.width, 0);
-		if (totalWidth < barWidth && segments.length > 0) {
-			segments[segments.length - 1].width += (barWidth - totalWidth);
-		}
-
-		return segments;
-	};
 
 	// Calculate duration (elapsed time between first and last timestamp)
 	const timestamps = logs.map(log => log.timestamp).filter(Boolean);
@@ -88,12 +204,14 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 		thinking: [],
 		subagent: []
 	};
+
 	const activityStats = {
 		assistant: { max: 0, avg: 0 },
 		tool: { max: 0, avg: 0 },
 		thinking: { max: 0, avg: 0 },
 		subagent: { max: 0, avg: 0 }
 	};
+
 	let timeLabels = [];
 
 	if (timestamps.length > 0) {
@@ -236,129 +354,62 @@ export default function Summary({width = 80, logs = [], project = 'Unknown Proje
 	}
 
 	return (
-		<Box flexDirection="column" width={width}>
+		<Box flexDirection="column">
 			<TitledBox
 				borderStyle="single"
 				borderColor="gray"
+				titles={['Summary']}
 				padding={1}
-				titles={[title || 'Summary']}
 			>
-				<Box flexDirection="column">
-					{startDatetime && (
-						<Box>
-							<Text dimColor>Last Modified: </Text>
-							<Text dimColor>{startDatetime}</Text>
-						</Box>
-					)}
-					<Box marginTop={1} gap={3}>
-						<Box>
-							<Text dimColor>Total Usage: </Text>
-							<Text>{totalUsage.toLocaleString()} tokens</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Duration: </Text>
-							<Text>{duration}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Tool Calls: </Text>
-							<Text>{toolCalls}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Agent Calls: </Text>
-							<Text>{agentCalls}</Text>
-						</Box>
+				<Box
+					flexDirection="column"
+				>
+					<Box>
+						<Text dimColor>Project: </Text>
+						<Text>{}</Text>
 					</Box>
-					{totalUsage > 0 && chartData.length > 0 && (
-						<Box flexDirection="column" marginTop={1}>
-							<Text dimColor>Token Distribution:</Text>
-							<Box flexDirection="column" marginTop={1}>
-								{/* Single stacked bar */}
-								<Box>
-									{createStackedBar(chartData, totalUsage, maxBarWidth).map((segment, idx) => (
-										<Text key={`segment-${idx}`} color={segment.color}>
-											{'█'.repeat(segment.width)}
-										</Text>
-									))}
-								</Box>
-								{/* Legend */}
-								<Box flexDirection="column" marginTop={1}>
-									{chartData.map((item, idx) => {
-										const percentage = (item.value / totalUsage) * 100;
-										return (
-											<Box key={`legend-${idx}`} gap={1}>
-												<Text color={item.color}>█</Text>
-												<Box width={12}>
-													<Text>{item.label}:</Text>
-												</Box>
-												<Box width={8}>
-													<Text dimColor>{percentage.toFixed(1)}%</Text>
-												</Box>
-												<Text dimColor>({item.value.toLocaleString()} tokens)</Text>
-											</Box>
-										);
-									})}
-								</Box>
-							</Box>
-						</Box>
-					)}
-					{activityByType.assistant.length > 0 && (
-						<Box flexDirection="column" marginTop={1}>
-							<Text dimColor>Activity (tokens/min, log scale):</Text>
-							<Box flexDirection="column" marginTop={1}>
-								{/* Assistant activity */}
-								<Box>
-									{activityByType.assistant.map((point, idx) => (
-										<Text key={`assistant-${idx}`} color="#2ecc71">
-											{point.char}
-										</Text>
-									))}
-								</Box>
-
-								{/* Tool activity */}
-								<Box marginTop={1}>
-									{activityByType.tool.map((point, idx) => (
-										<Text key={`tool-${idx}`} color="#3498db">
-											{point.char}
-										</Text>
-									))}
-								</Box>
-
-								{/* Thinking activity */}
-								<Box marginTop={1}>
-									{activityByType.thinking.map((point, idx) => (
-										<Text key={`thinking-${idx}`} color="#9b59b6">
-											{point.char}
-										</Text>
-									))}
-								</Box>
-
-								{/* Agent activity */}
-								<Box marginTop={1}>
-									{activityByType.subagent.map((point, idx) => (
-										<Text key={`subagent-${idx}`} color="red">
-											{point.char}
-										</Text>
-									))}
-								</Box>
-
-								{/* Time axis */}
-								{timeLabels.length > 0 && (
-									<Box marginTop={1} justifyContent="space-between">
-										{timeLabels.map((label, idx) => (
-											<Text key={`time-${idx}`} dimColor>{label.time}</Text>
-										))}
-									</Box>
-								)}
-
-								{/* Stats labels below sparklines */}
-								<Box marginTop={1} justifyContent="flex-end">
-									<Text dimColor>Max: {Math.max(activityStats.assistant.max, activityStats.tool.max, activityStats.thinking.max, activityStats.subagent.max).toLocaleString()}, Avg: {Math.round((activityStats.assistant.avg + activityStats.tool.avg + activityStats.thinking.avg + activityStats.subagent.avg) / 4).toLocaleString()}</Text>
-								</Box>
-							</Box>
-						</Box>
-					)}
+					<Box>
+						<Text dimColor>Created At: </Text>
+						<Text>{}</Text>
+					</Box>
+					<Box>
+						<Text dimColor>Last Modified: </Text>
+						<Text>{}</Text>
+					</Box>
+					<Box>
+						<Text dimColor>Logs: </Text>
+						<Text>{}</Text>
+					</Box>
+					<Box>
+						<Text dimColor>Duration: </Text>
+						<Text>{duration}</Text>
+					</Box>
+					<Box>
+						<Text dimColor>Usage: </Text>
+						<Text>{totalUsage.toLocaleString()} tokens</Text>
+					</Box>
+					<Box>
+						<Text dimColor>Tool Calls: </Text>
+						<Text>{toolCalls}</Text>
+					</Box>
+					<Box>
+						<Text dimColor>Agent Calls: </Text>
+						<Text>{agentCalls}</Text>
+					</Box>
 				</Box>
 			</TitledBox>
+
+			<TokenDistribution
+				data={chartData}
+				totalUsage={totalUsage}
+				maxWidth={maxBarWidth}
+			/>
+
+			<ActivityChart
+				activityByType={activityByType}
+				activityStats={activityStats}
+				timeLabels={timeLabels}
+			/>
 		</Box>
 	);
 }

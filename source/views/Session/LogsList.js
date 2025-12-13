@@ -1,5 +1,6 @@
 import React from 'react';
-import {Box, Text} from 'ink';
+import { Box, Text } from 'ink';
+import { TitledBox } from '@mishieck/ink-titled-box';
 
 // Color palette for subagents
 const AGENT_COLORS = ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c'];
@@ -8,7 +9,13 @@ export default function LogsList({
 	width = 80,
 	logs = [],
 	selectedIndex = 0,
-	collapsedStates = {}
+	collapsedStates = {},
+	listViewKey = null,
+	hasLogsAbove = false,
+	hasLogsBelow = false,
+	filteredLogs = [],
+	startIndex = null,
+	endIndex = null,
 }) {
 	// Track active agents and assign colors
 	const activeAgents = new Map(); // agentId -> { pos, color }
@@ -222,8 +229,27 @@ export default function LogsList({
 	};
 
 	return (
-		<>
-			{logs.map((log, index) => renderLog(log, index))}
-		</>
+		<TitledBox
+			borderStyle='single'
+			borderColor='gray'
+			padding={1}
+			marginTop={1}
+			key={listViewKey}
+			titles={["Logs"]}
+		>
+			<Box flexDirection="column">
+				{hasLogsAbove && (
+					<Text dimColor>
+						... {startIndex} more above ...
+					</Text>
+				)}
+				{logs.map((log, index) => renderLog(log, index))}
+				{hasLogsBelow && (
+					<Text dimColor>
+						... {filteredLogs.length - endIndex} more below ...
+					</Text>
+				)}
+			</Box>
+		</TitledBox>
 	);
 }

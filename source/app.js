@@ -1,24 +1,114 @@
 import React, {useState, useEffect} from 'react';
-import {Box, Text} from 'ink';
-import {useStdout} from 'ink';
-import Summary from './Summary.js';
-import Logs from './Logs.js';
-import {parseSession} from './parser.js';
+import {Box, Text, useInput, useStdout} from 'ink';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import {parseSession, parseLogFile} from './parser.js';
+import Browser from './views/Browser/index.js';
+import Session from './views/Session/index.js';
+import Details from './views/Details/index.js';
 
 export default function App({sessionDir = './data', sessionId = null}) {
 	const {stdout} = useStdout();
 	const width = stdout?.columns || 80;
 
+	// Data state
 	const [data, setData] = useState(null);
 	const [error, setError] = useState(null);
 	const [currentSessionPath, setCurrentSessionPath] = useState(null);
 	const [currentProject, setCurrentProject] = useState(null);
-	const [agentViewData, setAgentViewData] = useState(null); // {agentId, logs}
+	const [currentSessionDir, setCurrentSessionDir] = useState(null);
+
+	// View state
+	const [viewMode, setViewMode] = useState('browser'); // 'browser', 'session', or 'detail'
+	const [agentViewData, setAgentViewData] = useState(null); // {agentId, logs, parentLogs}
+
+	// Browser state
+	const [projects, setProjects] = useState([]);
+	const [expandedProjects, setExpandedProjects] = useState(new Set());
+	const [browserItems, setBrowserItems] = useState([]);
+	const [lastSelectedSession, setLastSelectedSession] = useState(null);
+
+	// Session/List state
+	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [collapsedStates, setCollapsedStates] = useState({});
+	const [activeFilters, setActiveFilters] = useState({
+		user: true,
+		assistant: true,
+		tool: true,
+		thinking: true,
+		subagent: true,
+	});
+	const [savedFilters, setSavedFilters] = useState(null);
+	const [searchMode, setSearchMode] = useState(false);
+	const [searchQuery, setSearchQuery] = useState('');
+	const [activeSearch, setActiveSearch] = useState('');
+
+	// Detail state
+	const [detailScrollOffset, setDetailScrollOffset] = useState(0);
+
+	// Scan for projects and sessions on mount
+	useEffect(() => {
+		const claudeDir = path.join(os.homedir(), '.claude', 'projects');
+
+		try {
+			if (!fs.existsSync(claudeDir)) {
+				setProjects([]);
+				return;
+			}
+
+			const projectDirs = fs.readdirSync(claudeDir, { withFileTypes: true })
+				.filter(dirent => dirent.isDirectory())
+				.map(dirent => dirent.name);
+
+			const projectsData = projectDirs.map(projectName => {
+				const projectPath = path.join(claudeDir, projectName);
+				const sessions = fs.readdirSync(projectPath)
+					.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'))
+					.map(file => {
+						const filePath = path.join(projectPath, file);
+						const stats = fs.statSync(filePath);
+						return {
+							name: file,
+							path: filePath,
+							projectName,
+							mtime: stats.mtime
+						};
+					})
+					.sort((a, b) => b.mtime - a.mtime); // Sort most recent first
+
+				return {
+					name: projectName,
+					path: projectPath,
+					sessions
+				};
+			}).filter(project => project.sessions.length > 0);
+
+			setProjects(projectsData);
+		} catch (error) {
+			console.error('Error scanning projects:', error);
+			setProjects([]);
+		}
+	}, []);
+
+	// Build flat list of browser items for navigation
+	useEffect(() => {
+		const items = [];
+		projects.forEach(project => {
+			items.push({ type: 'project', data: project });
+			if (expandedProjects.has(project.name)) {
+				project.sessions.forEach(session => {
+					items.push({ type: 'session', data: session, projectName: project.name });
+				});
+			}
+		});
+		setBrowserItems(items);
+	}, [projects, expandedProjects]);
 
 	// Load session when sessionId changes or when a new session is selected
 	useEffect(() => {
 		if (!currentSessionPath && !sessionId) {
-			// No session selected, start in browser mode
+			// No session selected, stay in browser mode
 			setData(null);
 			return;
 		}
@@ -41,68 +131,459 @@ export default function App({sessionDir = './data', sessionId = null}) {
 		}
 	}, [sessionDir, sessionId, currentSessionPath]);
 
-	// Handle session selection from browser
-	const handleSessionSelect = (sessionPath, projectName) => {
-		setCurrentSessionPath(sessionPath);
-		setCurrentProject(projectName);
+	// Reset collapsed states when logs or agent view changes
+	useEffect(() => {
+		const initial = {};
+		const logsToInit = agentViewData ? agentViewData.logs : (data?.logs || []);
+		logsToInit.forEach(log => {
+			initial[log.id] = true; // Start all collapsed
+		});
+		setCollapsedStates(initial);
+	}, [data?.logs, agentViewData]);
+
+	// Use agent logs if in agent view, otherwise use session logs
+	const currentLogs = agentViewData ? agentViewData.logs : (data?.logs || []);
+
+	// Parse search query into field filters
+	const parseSearchQuery = (query) => {
+		if (!query.trim()) return [];
+		const filters = [];
+		const parts = query.match(/(\w+):([^\s]+)/g) || [];
+		parts.forEach(part => {
+			const [field, value] = part.split(':');
+			filters.push({ field: field.toLowerCase(), value: value.toLowerCase() });
+		});
+		return filters;
 	};
 
-	// Handle return to browser (clear current session)
-	const handleReturnToBrowser = () => {
-		setCurrentSessionPath(null);
-		setCurrentProject(null);
-		setData(null);
-		setAgentViewData(null);
+	// Check if log matches search filters
+	const matchesSearch = (log, searchFilters) => {
+		if (searchFilters.length === 0) return true;
+
+		return searchFilters.every(filter => {
+			switch (filter.field) {
+				case 'type':
+					return log.type.toLowerCase().includes(filter.value);
+				case 'content':
+					return log.content?.toLowerCase().includes(filter.value);
+				case 'agent':
+					return log.agentId?.toLowerCase().includes(filter.value);
+				case 'tool':
+					return log.toolName?.toLowerCase().includes(filter.value);
+				default:
+					return true;
+			}
+		});
 	};
 
-	// Handle agent view change
-	const handleAgentView = (agentData) => {
-		setAgentViewData(agentData);
+	// Parse active search filters
+	const searchFilters = parseSearchQuery(activeSearch);
+
+	// Filter logs based on active filters and search
+	const filteredLogs = currentLogs.filter(log =>
+		activeFilters[log.type] && matchesSearch(log, searchFilters)
+	);
+
+	// Helper to check if a log is selectable
+	const isSelectable = (log) => {
+		// Skip subagent end rows (isLast = true)
+		if (log.type === 'subagent' && log.isLast) {
+			return false;
+		}
+		return true;
 	};
 
+	// Find next selectable index
+	const findNextSelectable = (currentIndex, direction) => {
+		let nextIndex = currentIndex + direction;
+		while (nextIndex >= 0 && nextIndex < filteredLogs.length) {
+			if (isSelectable(filteredLogs[nextIndex])) {
+				return nextIndex;
+			}
+			nextIndex += direction;
+		}
+		return currentIndex; // Stay at current if no selectable found
+	};
+
+	// Find Nth selectable index in a direction
+	const findNthSelectable = (currentIndex, direction, n) => {
+		let nextIndex = currentIndex;
+		let count = 0;
+		while (count < n && nextIndex >= 0 && nextIndex < filteredLogs.length) {
+			nextIndex = findNextSelectable(nextIndex, direction);
+			if (nextIndex === currentIndex || (direction > 0 && nextIndex >= filteredLogs.length - 1) || (direction < 0 && nextIndex <= 0)) {
+				break; // Reached end of list
+			}
+			count++;
+		}
+		return nextIndex;
+	};
+
+	// Calculate viewport size
+	const terminalHeight = stdout?.rows || 40;
+	const availableHeight = terminalHeight - 14;
+	const viewportSize = Math.min(25, Math.max(15, availableHeight));
+
+	// Handle keyboard input
+	useInput((input, key) => {
+		// Handle search mode input
+		if (searchMode) {
+			if (key.return) {
+				// Apply search
+				setActiveSearch(searchQuery);
+				setSearchMode(false);
+				return;
+			} else if (key.escape) {
+				// Cancel search
+				setSearchQuery('');
+				setSearchMode(false);
+				return;
+			} else if (key.backspace || key.delete) {
+				// Remove last character
+				setSearchQuery(prev => prev.slice(0, -1));
+				return;
+			} else if (input && !key.ctrl && !key.meta) {
+				// Add character to query
+				setSearchQuery(prev => prev + input);
+				return;
+			}
+			return; // Ignore other keys in search mode
+		}
+
+		// Enter search mode with '/'
+		if (input === '/' && viewMode === 'session') {
+			setSearchMode(true);
+			setSearchQuery('');
+			return;
+		}
+
+		// Clear search with Escape (when not in search mode but search is active)
+		if (key.escape && activeSearch && viewMode === 'session') {
+			setActiveSearch('');
+			return;
+		}
+
+		// Handle navigation within agent view
+		if (agentViewData) {
+			// Escape: return to browser from any mode
+			if (key.escape) {
+				setAgentViewData(null);
+				setViewMode('browser');
+				setSelectedIndex(0);
+				setSavedFilters(null);
+				setCurrentSessionPath(null);
+				setCurrentProject(null);
+				setData(null);
+				return;
+			}
+
+			// Left arrow: return to session list from detail, or exit agent view from session
+			if (key.leftArrow) {
+				if (viewMode === 'detail') {
+					setViewMode('session');
+					setDetailScrollOffset(0);
+					return;
+				} else if (viewMode === 'session') {
+					setAgentViewData(null);
+					// Restore saved filters when exiting agent view
+					if (savedFilters) {
+						setActiveFilters(savedFilters);
+						setSavedFilters(null);
+					}
+					return;
+				}
+			}
+		}
+
+		// Escape: return to browser from session/detail view
+		if (key.escape && (viewMode === 'session' || viewMode === 'detail')) {
+			setViewMode('browser');
+			setSavedFilters(null);
+			// Find and select the last selected session
+			if (lastSelectedSession) {
+				const index = browserItems.findIndex(
+					item => item.type === 'session' && item.data.path === lastSelectedSession
+				);
+				if (index !== -1) {
+					setSelectedIndex(index);
+				} else {
+					setSelectedIndex(0);
+				}
+			} else {
+				setSelectedIndex(0);
+			}
+			setCurrentSessionPath(null);
+			setCurrentProject(null);
+			setData(null);
+			setAgentViewData(null);
+			return;
+		}
+
+		// Browser mode navigation
+		if (viewMode === 'browser') {
+			if (key.upArrow && selectedIndex > 0) {
+				setSelectedIndex(prev => prev - 1);
+			} else if (key.downArrow && selectedIndex < browserItems.length - 1) {
+				setSelectedIndex(prev => prev + 1);
+			} else if (key.return || key.rightArrow) {
+				const item = browserItems[selectedIndex];
+				if (item?.type === 'project') {
+					// Toggle project expansion
+					setExpandedProjects(prev => {
+						const next = new Set(prev);
+						if (next.has(item.data.name)) {
+							next.delete(item.data.name);
+						} else {
+							next.add(item.data.name);
+						}
+						return next;
+					});
+				} else if (item?.type === 'session') {
+					// Select session and switch to session view
+					setLastSelectedSession(item.data.path);
+					setCurrentSessionPath(item.data.path);
+					setCurrentSessionDir(path.dirname(item.data.path));
+					setCurrentProject(item.data.projectName);
+					// Reset filters when navigating from browser to session
+					setActiveFilters({
+						user: true,
+						assistant: true,
+						tool: true,
+						thinking: true,
+						subagent: true,
+					});
+					setSavedFilters(null);
+					setViewMode('session');
+					setSelectedIndex(0);
+				}
+			} else if (key.leftArrow) {
+				// Collapse current project or parent project
+				const item = browserItems[selectedIndex];
+				if (item?.type === 'project') {
+					// Collapse this project if expanded
+					setExpandedProjects(prev => {
+						const next = new Set(prev);
+						next.delete(item.data.name);
+						return next;
+					});
+				} else if (item?.type === 'session') {
+					// Collapse parent project
+					setExpandedProjects(prev => {
+						const next = new Set(prev);
+						next.delete(item.projectName);
+						return next;
+					});
+				}
+			}
+			return;
+		}
+
+		// Left arrow: return to session view from detail view
+		if (key.leftArrow && viewMode === 'detail') {
+			setViewMode('session');
+			setDetailScrollOffset(0);
+			return;
+		}
+
+		// Right arrow: switch to detail view or agent view
+		if (key.rightArrow && viewMode === 'session') {
+			const selectedLog = filteredLogs[selectedIndex];
+			// If it's a subagent log, load agent history
+			if (selectedLog?.type === 'subagent' && selectedLog.agentId && currentSessionDir) {
+				const agentFilePath = path.join(currentSessionDir, `agent-${selectedLog.agentId}.jsonl`);
+				if (fs.existsSync(agentFilePath)) {
+					try {
+						const agentLogs = parseLogFile(agentFilePath);
+						// Assign sequential IDs to agent logs
+						agentLogs.forEach((log, index) => {
+							log.id = index + 1;
+						});
+						const agentData = {
+							agentId: selectedLog.agentId,
+							logs: agentLogs,
+							parentLogs: data?.logs || []
+						};
+						setAgentViewData(agentData);
+						setViewMode('session'); // Stay in session mode but with agent logs
+						setSelectedIndex(0);
+						setDetailScrollOffset(0);
+						// Save current filters and reset when entering agent view
+						setSavedFilters(activeFilters);
+						setActiveFilters({
+							user: true,
+							assistant: true,
+							tool: true,
+							thinking: true,
+							subagent: true,
+						});
+						return;
+					} catch (e) {
+						// Fall through to detail view on error
+					}
+				}
+			}
+			setViewMode('detail');
+			setDetailScrollOffset(0);
+			return;
+		}
+
+		// Handle scrolling in detail mode
+		if (viewMode === 'detail') {
+			if (key.upArrow) {
+				setDetailScrollOffset(prev => Math.max(0, prev - 1));
+			} else if (key.downArrow) {
+				setDetailScrollOffset(prev => prev + 1);
+			} else if (input === 'u') {
+				setDetailScrollOffset(prev => Math.max(0, prev - 10));
+			} else if (input === 'd') {
+				setDetailScrollOffset(prev => prev + 10);
+			} else if (input === 't') {
+				setDetailScrollOffset(0);
+			} else if (input === 'b') {
+				// Jump to bottom - calculate max offset
+				const log = filteredLogs[selectedIndex];
+				if (log && log.content) {
+					const detailAvailableHeight = 30;
+					const contentLines = log.content.split('\n');
+					const totalLines = contentLines.length;
+					const maxOffset = Math.max(0, totalLines - detailAvailableHeight);
+					setDetailScrollOffset(maxOffset);
+				}
+			}
+			return;
+		}
+
+		// Filter toggles (work in session mode)
+		if (viewMode === 'session') {
+			if (input === '1') {
+				setActiveFilters(prev => ({...prev, user: !prev.user}));
+				return;
+			} else if (input === '2') {
+				setActiveFilters(prev => ({...prev, assistant: !prev.assistant}));
+				return;
+			} else if (input === '3') {
+				setActiveFilters(prev => ({...prev, tool: !prev.tool}));
+				return;
+			} else if (input === '4') {
+				setActiveFilters(prev => ({...prev, thinking: !prev.thinking}));
+				return;
+			} else if (input === '5') {
+				setActiveFilters(prev => ({...prev, subagent: !prev.subagent}));
+				return;
+			}
+		}
+
+		// Only handle list navigation in session mode
+		if (viewMode === 'session') {
+			if (key.upArrow) {
+				setSelectedIndex(prev => findNextSelectable(prev, -1));
+			} else if (key.downArrow) {
+				setSelectedIndex(prev => findNextSelectable(prev, 1));
+			} else if (input === 'd') {
+				// d: jump down 10 messages
+				setSelectedIndex(prev => findNthSelectable(prev, 1, 10));
+			} else if (input === 'u') {
+				// u: jump up 10 messages
+				setSelectedIndex(prev => findNthSelectable(prev, -1, 10));
+			} else if (input === 't') {
+				// t: jump to top
+				const firstSelectable = filteredLogs.findIndex(log => isSelectable(log));
+				if (firstSelectable !== -1) setSelectedIndex(firstSelectable);
+			} else if (input === 'b') {
+				// b: jump to bottom
+				for (let i = filteredLogs.length - 1; i >= 0; i--) {
+					if (isSelectable(filteredLogs[i])) {
+						setSelectedIndex(i);
+						break;
+					}
+				}
+			} else if (key.return) {
+				const selectedLog = filteredLogs[selectedIndex];
+				if (selectedLog?.content) {
+					setCollapsedStates(prev => ({
+						...prev,
+						[selectedLog.id]: !prev[selectedLog.id],
+					}));
+				}
+			} else if (input === 'a') {
+				// Expand all
+				const newStates = {};
+				filteredLogs.forEach(log => {
+					newStates[log.id] = false;
+				});
+				setCollapsedStates(newStates);
+			} else if (input === 'c') {
+				// Collapse all
+				const newStates = {};
+				filteredLogs.forEach(log => {
+					newStates[log.id] = true;
+				});
+				setCollapsedStates(newStates);
+			}
+		}
+	});
+
+	// Render error state
 	if (error) {
 		return (
 			<Box flexDirection="column">
 				<Box marginBottom={1}>
 					<Text color="red">Error: {error}</Text>
 				</Box>
-				<Logs
+				<Browser
 					width={width}
-					logs={[]}
-					onSessionSelect={handleSessionSelect}
-				onReturnToBrowser={handleReturnToBrowser}
+					browserItems={browserItems}
+					selectedIndex={selectedIndex}
+					expandedProjects={expandedProjects}
 				/>
 			</Box>
 		);
 	}
 
-	// Determine what to show in Summary
-	const summaryLogs = agentViewData ? agentViewData.logs : (data?.logs || []);
-	const summaryProject = currentProject || data?.project;
-	const summaryTitle = agentViewData
-		? `${summaryProject}/${data?.sessionId}/agent-${agentViewData.agentId}`
-		: (data ? `${summaryProject}/${data.sessionId}` : null);
-
-	return (
-		<Box flexDirection="column">
-			{data && (
-				<Summary
-					width={width}
-					logs={summaryLogs}
-					project={summaryProject}
-					session={data.sessionId}
-					startDatetime={data.startDatetime}
-					title={summaryTitle}
-				/>
-			)}
-			<Logs
+	// Render Browser view
+	if (viewMode === 'browser') {
+		return (
+			<Browser
 				width={width}
-				logs={data?.logs || []}
-				sessionId={data?.sessionId}
-				onSessionSelect={handleSessionSelect}
-				onReturnToBrowser={handleReturnToBrowser}
-				onAgentView={handleAgentView}
+				browserItems={browserItems}
+				selectedIndex={selectedIndex}
+				expandedProjects={expandedProjects}
 			/>
-		</Box>
+		);
+	}
+
+	// Render Detail view
+	if (viewMode === 'detail') {
+		const selectedLog = filteredLogs[selectedIndex];
+		return (
+			<Details
+				width={width}
+				log={selectedLog}
+				sessionId={data?.sessionId}
+				agentViewData={agentViewData}
+				detailScrollOffset={detailScrollOffset}
+				availableHeight={30}
+			/>
+		);
+	}
+
+	// Render Session view
+	return (
+		<Session
+			width={width}
+			logs={data?.logs || []}
+			filteredLogs={filteredLogs}
+			sessionId={data?.sessionId}
+			project={currentProject || data?.project}
+			startDatetime={data?.startDatetime}
+			agentViewData={agentViewData}
+			selectedIndex={selectedIndex}
+			viewportSize={viewportSize}
+			activeFilters={activeFilters}
+			searchMode={searchMode}
+			searchQuery={searchQuery}
+			activeSearch={activeSearch}
+			collapsedStates={collapsedStates}
+		/>
 	);
 }

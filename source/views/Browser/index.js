@@ -2,7 +2,9 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import Gradient from 'ink-gradient';
 import BigText from 'ink-big-text';
-import {version} from '../../package.json';
+
+// Version injected at build time via esbuild define
+const version = process.env.PACKAGE_VERSION || '0.0.0';
 
 export default function Browser({
 	width = 80,

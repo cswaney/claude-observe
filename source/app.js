@@ -3,7 +3,7 @@ import {Box, Text, useInput, useStdout} from 'ink';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import {parseSession, parseLogFile} from './parser.js';
+import {parseSession, parseLogFile, getSessionMetadata} from './parser.js';
 import Browser from './views/Browser/index.js';
 import Session from './views/Session/index.js';
 import Details from './views/Details/index.js';
@@ -25,9 +25,11 @@ export default function App({sessionDir = './data', sessionId = null}) {
 
 	// Browser state
 	const [projects, setProjects] = useState([]);
-	const [expandedProjects, setExpandedProjects] = useState(new Set());
 	const [browserItems, setBrowserItems] = useState([]);
 	const [lastSelectedSession, setLastSelectedSession] = useState(null);
+	const [browserFilterMode, setBrowserFilterMode] = useState(false);
+	const [browserFilterInput, setBrowserFilterInput] = useState('');
+	const [browserFilterQuery, setBrowserFilterQuery] = useState('');
 
 	// Session/List state
 	const [selectedIndex, setSelectedIndex] = useState(0);
@@ -63,24 +65,53 @@ export default function App({sessionDir = './data', sessionId = null}) {
 
 			const projectsData = projectDirs.map(projectName => {
 				const projectPath = path.join(claudeDir, projectName);
-				const sessions = fs.readdirSync(projectPath)
-					.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'))
+				const projectStats = fs.statSync(projectPath);
+
+				// Find project cwd by checking session files until we find one
+				const sessionFiles = fs.readdirSync(projectPath)
+					.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
+
+				let projectCwd = projectName;
+				for (const file of sessionFiles) {
+					const filePath = path.join(projectPath, file);
+					const metadata = getSessionMetadata(filePath);
+					if (metadata.cwd) {
+						projectCwd = metadata.cwd;
+						break;
+					}
+				}
+
+				const sessions = sessionFiles
 					.map(file => {
 						const filePath = path.join(projectPath, file);
-						const stats = fs.statSync(filePath);
+						const metadata = getSessionMetadata(filePath);
+
 						return {
+							session: file,
+							project: projectCwd,
+							usage: metadata.usage,
+							logCount: metadata.logCount,
+							created: metadata.created ? new Date(metadata.created) : null,
+							modified: metadata.modified ? new Date(metadata.modified) : null,
+							// Keep legacy fields for compatibility
 							name: file,
 							path: filePath,
 							projectName,
-							mtime: stats.mtime
+							mtime: metadata.modified ? new Date(metadata.modified) : new Date(),
+							birthtime: metadata.created ? new Date(metadata.created) : new Date()
 						};
 					})
 					.sort((a, b) => b.mtime - a.mtime); // Sort most recent first
 
+				// Get the most recent session mtime as the project's last modified time
+				const lastModified = sessions.length > 0 ? sessions[0].mtime : projectStats.mtime;
+
 				return {
 					name: projectName,
 					path: projectPath,
-					sessions
+					sessions,
+					birthtime: projectStats.birthtime,  // Project creation time
+					mtime: lastModified  // Last modified (most recent session)
 				};
 			}).filter(project => project.sessions.length > 0);
 
@@ -91,19 +122,36 @@ export default function App({sessionDir = './data', sessionId = null}) {
 		}
 	}, []);
 
-	// Build flat list of browser items for navigation
+	// Build flat list of all sessions for navigation
 	useEffect(() => {
 		const items = [];
-		projects.forEach(project => {
-			items.push({ type: 'project', data: project });
-			if (expandedProjects.has(project.name)) {
-				project.sessions.forEach(session => {
-					items.push({ type: 'session', data: session, projectName: project.name });
+		// Sort projects alphabetically
+		const sortedProjects = [...projects].sort((a, b) =>
+			a.name.localeCompare(b.name)
+		);
+		sortedProjects.forEach(project => {
+			// Get the actual filesystem path from the project.path
+			// This is more reliable than trying to parse the dash-separated name
+			const projectPath = project.path;
+
+			// Sessions are already sorted by mtime (most recent first)
+			project.sessions.forEach(session => {
+				items.push({
+					...session,
+					projectPath: projectPath
 				});
-			}
+			});
 		});
 		setBrowserItems(items);
-	}, [projects, expandedProjects]);
+	}, [projects]);
+
+	// Filter browser items based on active filter (or current input if in filter mode)
+	const activeFilterQuery = browserFilterMode ? browserFilterInput : browserFilterQuery;
+	const filteredBrowserItems = browserItems.filter(item => {
+		if (!activeFilterQuery) return true;
+		const projectPath = item.project || item.projectName || '';
+		return projectPath.toLowerCase().includes(activeFilterQuery.toLowerCase());
+	});
 
 	// Load session when sessionId changes or when a new session is selected
 	useEffect(() => {
@@ -226,6 +274,82 @@ export default function App({sessionDir = './data', sessionId = null}) {
 
 	// Handle keyboard input
 	useInput((input, key) => {
+		// Handle browser filter mode input
+		if (browserFilterMode) {
+			if (key.return) {
+				// Exit filter mode, keep current input as active filter
+				setBrowserFilterQuery(browserFilterInput);
+				setBrowserFilterMode(false);
+				return;
+			} else if (key.escape) {
+				// Cancel filter and clear everything
+				const currentItem = filteredBrowserItems[selectedIndex];
+				setBrowserFilterInput('');
+				setBrowserFilterQuery('');
+				setBrowserFilterMode(false);
+
+				// Try to preserve selection in unfiltered list
+				if (currentItem) {
+					const newIndex = browserItems.findIndex(
+						item => item.session === currentItem.session
+					);
+					if (newIndex !== -1) {
+						setSelectedIndex(newIndex);
+					} else {
+						setSelectedIndex(0);
+					}
+				} else {
+					setSelectedIndex(0);
+				}
+				return;
+			} else if (key.upArrow && selectedIndex > 0) {
+				// Allow navigation while filtering
+				setSelectedIndex(prev => prev - 1);
+				return;
+			} else if (key.downArrow && selectedIndex < filteredBrowserItems.length - 1) {
+				// Allow navigation while filtering
+				setSelectedIndex(prev => prev + 1);
+				return;
+			} else if (key.backspace || key.delete) {
+				// Remove last character
+				const newInput = browserFilterInput.slice(0, -1);
+				const currentItem = filteredBrowserItems[selectedIndex];
+
+				setBrowserFilterInput(newInput);
+
+				// Check if current selection will still be in the filtered list
+				if (currentItem) {
+					const projectPath = currentItem.project || currentItem.projectName || '';
+					const stillMatches = !newInput || projectPath.toLowerCase().includes(newInput.toLowerCase());
+
+					if (!stillMatches) {
+						setSelectedIndex(0);
+					}
+				}
+				return;
+			} else if (input && !key.ctrl && !key.meta) {
+				// Add character to query
+				const newInput = browserFilterInput + input;
+				const currentItem = filteredBrowserItems[selectedIndex];
+
+				setBrowserFilterInput(newInput);
+
+				// Check if current selection will still be in the filtered list
+				if (currentItem) {
+					const projectPath = currentItem.project || currentItem.projectName || '';
+					const stillMatches = projectPath.toLowerCase().includes(newInput.toLowerCase());
+
+					if (!stillMatches) {
+						setSelectedIndex(0);
+					} else {
+						setSelectedIndex(0);
+					}
+				}
+				return;
+			}
+			return; // Ignore other keys in filter mode
+		}
+
 		// Handle search mode input
 		if (searchMode) {
 			if (key.return) {
@@ -302,7 +426,7 @@ export default function App({sessionDir = './data', sessionId = null}) {
 			// Find and select the last selected session
 			if (lastSelectedSession) {
 				const index = browserItems.findIndex(
-					item => item.type === 'session' && item.data.path === lastSelectedSession
+					session => session.path === lastSelectedSession
 				);
 				if (index !== -1) {
 					setSelectedIndex(index);
@@ -319,31 +443,34 @@ export default function App({sessionDir = './data', sessionId = null}) {
 			return;
 		}
 
+		// Enter filter mode with '/' in browser
+		if (input === '/' && viewMode === 'browser') {
+			setBrowserFilterMode(true);
+			setBrowserFilterInput('');
+			return;
+		}
+
+		// Clear filter with Escape (when not in filter mode but filter is active)
+		if (key.escape && browserFilterQuery && viewMode === 'browser') {
+			setBrowserFilterQuery('');
+			setSelectedIndex(0);
+			return;
+		}
+
 		// Browser mode navigation
 		if (viewMode === 'browser') {
 			if (key.upArrow && selectedIndex > 0) {
 				setSelectedIndex(prev => prev - 1);
-			} else if (key.downArrow && selectedIndex < browserItems.length - 1) {
+			} else if (key.downArrow && selectedIndex < filteredBrowserItems.length - 1) {
 				setSelectedIndex(prev => prev + 1);
 			} else if (key.return || key.rightArrow) {
-				const item = browserItems[selectedIndex];
-				if (item?.type === 'project') {
-					// Toggle project expansion
-					setExpandedProjects(prev => {
-						const next = new Set(prev);
-						if (next.has(item.data.name)) {
-							next.delete(item.data.name);
-						} else {
-							next.add(item.data.name);
-						}
-						return next;
-					});
-				} else if (item?.type === 'session') {
-					// Select session and switch to session view
-					setLastSelectedSession(item.data.path);
-					setCurrentSessionPath(item.data.path);
-					setCurrentSessionDir(path.dirname(item.data.path));
-					setCurrentProject(item.data.projectName);
+				// Select session and switch to session view
+				const session = filteredBrowserItems[selectedIndex];
+				if (session) {
+					setLastSelectedSession(session.path);
+					setCurrentSessionPath(session.path);
+					setCurrentSessionDir(path.dirname(session.path));
+					setCurrentProject(session.projectName);
 					// Reset filters when navigating from browser to session
 					setActiveFilters({
 						user: true,
@@ -355,24 +482,6 @@ export default function App({sessionDir = './data', sessionId = null}) {
 					setSavedFilters(null);
 					setViewMode('session');
 					setSelectedIndex(0);
-				}
-			} else if (key.leftArrow) {
-				// Collapse current project or parent project
-				const item = browserItems[selectedIndex];
-				if (item?.type === 'project') {
-					// Collapse this project if expanded
-					setExpandedProjects(prev => {
-						const next = new Set(prev);
-						next.delete(item.data.name);
-						return next;
-					});
-				} else if (item?.type === 'session') {
-					// Collapse parent project
-					setExpandedProjects(prev => {
-						const next = new Set(prev);
-						next.delete(item.projectName);
-						return next;
-					});
 				}
 			}
 			return;
@@ -532,10 +641,12 @@ export default function App({sessionDir = './data', sessionId = null}) {
 				</Box>
 				<Browser
 					width={width}
-					browserItems={browserItems}
+					browserItems={filteredBrowserItems}
 					selectedIndex={selectedIndex}
-					expandedProjects={expandedProjects}
-				/>
+					browserFilterMode={browserFilterMode}
+					browserFilterInput={browserFilterInput}
+					browserFilterQuery={browserFilterQuery}
+					/>
 			</Box>
 		);
 	}
@@ -545,9 +656,11 @@ export default function App({sessionDir = './data', sessionId = null}) {
 		return (
 			<Browser
 				width={width}
-				browserItems={browserItems}
+				browserItems={filteredBrowserItems}
 				selectedIndex={selectedIndex}
-				expandedProjects={expandedProjects}
+				browserFilterMode={browserFilterMode}
+				browserFilterInput={browserFilterInput}
+				browserFilterQuery={browserFilterQuery}
 			/>
 		);
 	}

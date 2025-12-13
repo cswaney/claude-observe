@@ -160,6 +160,73 @@ function parseAgentFile(filePath) {
 }
 
 /**
+ * Extract metadata from a session file without parsing all logs
+ * @param {string} filePath - Path to session file
+ * @returns {object} Session metadata (cwd, usage, logCount, created, modified)
+ */
+export function getSessionMetadata(filePath) {
+	try {
+		const content = fs.readFileSync(filePath, 'utf-8');
+		const lines = content.split('\n').filter(line => line.trim());
+
+		if (lines.length === 0) {
+			return { cwd: null, usage: 0, logCount: 0, created: null, modified: null };
+		}
+
+		// Parse all entries to find cwd, calculate usage and log count
+		let cwd = null;
+		let created = null;
+		let totalUsage = 0;
+		let logCount = 0;
+		let lastTimestamp = null;
+
+		for (const line of lines) {
+			const entry = JSON.parse(line);
+
+			// Extract cwd from any entry that has it
+			if (!cwd && entry.cwd) {
+				cwd = entry.cwd;
+			}
+
+			// Track first timestamp as created
+			if (!created && entry.timestamp) {
+				created = entry.timestamp;
+			}
+
+			// Skip non-message entries for counting
+			if (entry.type === 'summary' || entry.type === 'file-history-snapshot' || entry.type === 'queue-operation') {
+				continue;
+			}
+
+			// Count logs and sum usage
+			if (entry.type === 'user' || entry.type === 'assistant') {
+				const message = entry.message;
+				if (message && message.content) {
+					// Count content blocks as logs
+					logCount += message.content.length;
+					totalUsage += getTotalUsage(message.usage);
+				}
+			}
+
+			// Track last timestamp
+			if (entry.timestamp) {
+				lastTimestamp = entry.timestamp;
+			}
+		}
+
+		return {
+			cwd,
+			usage: totalUsage,
+			logCount,
+			created,
+			modified: lastTimestamp
+		};
+	} catch (e) {
+		return { cwd: null, usage: 0, logCount: 0, created: null, modified: null };
+	}
+}
+
+/**
  * Parse logs from a session directory or file path
  * @param {string} sessionDir - Directory containing session files
  * @param {string} sessionId - Optional session ID to parse (without .jsonl extension)

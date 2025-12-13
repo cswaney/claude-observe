@@ -1,4 +1,4 @@
-import {parseSession} from './source/parser.js';
+import {parseSession} from './parser.js';
 
 const sessionDir = './data';
 const sessionId = '404fc69d-751b-4662-b5c0-5c708a100632';

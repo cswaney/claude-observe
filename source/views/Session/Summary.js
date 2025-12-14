@@ -2,6 +2,15 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { TitledBox } from '@mishieck/ink-titled-box';
 
+// Format token counts with k/M suffixes
+function formatTokens(count) {
+	if (count >= 1000000) {
+		return (count / 1000000).toFixed(1) + 'M';
+	} else if (count >= 1000) {
+		return (count / 1000).toFixed(1) + 'k';
+	}
+	return count.toString();
+}
 
 function TokenDistribution({ data, totalUsage, maxWidth }) {
 
@@ -26,7 +35,8 @@ function TokenDistribution({ data, totalUsage, maxWidth }) {
 		borderColor="gray"
 		padding={1}
 		titles={["Usage"]}
-		marginTop={1}
+		// marginTop={1}
+		height={9}
 	>
 		{totalUsage > 0 && data.length > 0 && (
 			<Box flexDirection="column">
@@ -40,29 +50,38 @@ function TokenDistribution({ data, totalUsage, maxWidth }) {
 				</Box>
 
 				<Box
-					justifyContent="center"
+					flexDirection="column"
 					marginTop={1}
-					gap={2}
+					gap={1}
 				>
-					{data.map((item, idx) => {
-						const percentage = (item.value / totalUsage) * 100;
-						return (
-							<Box
-								// flexGrow={1}
-								key={`legend-${idx}`}
-								gap={1}
-							>
-								<Text color={item.color}>█</Text>
-								<Box>
+					{/* First row: Assistant and Tool */}
+					<Box justifyContent="center" gap={2}>
+						{data.slice(0, 2).map((item, idx) => {
+							const percentage = (item.value / totalUsage) * 100;
+							return (
+								<Box key={`legend-${idx}`} gap={1}>
+									<Text color={item.color}>█</Text>
 									<Text>{item.label}:</Text>
-								</Box>
-								<Box>
 									<Text dimColor>{percentage.toFixed(1)}%</Text>
+									<Text dimColor>({formatTokens(item.value)})</Text>
 								</Box>
-								<Text dimColor>({item.value.toLocaleString()} tokens)</Text>
-							</Box>
-						);
-					})}
+							);
+						})}
+					</Box>
+					{/* Second row: Thinking and Agents */}
+					<Box justifyContent="center" gap={2}>
+						{data.slice(2, 4).map((item, idx) => {
+							const percentage = (item.value / totalUsage) * 100;
+							return (
+								<Box key={`legend-${idx + 2}`} gap={1}>
+									<Text color={item.color}>█</Text>
+									<Text>{item.label}:</Text>
+									<Text dimColor>{percentage.toFixed(1)}%</Text>
+									<Text dimColor>({formatTokens(item.value)})</Text>
+								</Box>
+							);
+						})}
+					</Box>
 				</Box>
 			</Box>
 		)}
@@ -74,8 +93,10 @@ function ActivityChart({ activityByType, activityStats, timeLabels }) {
 		borderStyle="single"
 		borderColor="gray"
 		padding={1}
-		marginTop={1}
-		titles={["Activity (tokens/min, log scale)"]}
+		// marginTop={1}
+    paddingBottom={0}
+		// titles={["Activity (tokens/min, log scale)"]}
+		titles={["Activity"]}
 	>
 		{activityByType.assistant.length > 0 && (
 			<Box flexDirection="column" marginTop={1}>
@@ -125,15 +146,15 @@ function ActivityChart({ activityByType, activityStats, timeLabels }) {
 				)}
 
 				{/* Stats labels below sparklines */}
-				<Box marginTop={1} justifyContent="flex-end">
+				{/* <Box marginTop={1} justifyContent="flex-end">
 					<Text dimColor>Max: {Math.max(activityStats.assistant.max, activityStats.tool.max, activityStats.thinking.max, activityStats.subagent.max).toLocaleString()}, Avg: {Math.round((activityStats.assistant.avg + activityStats.tool.avg + activityStats.thinking.avg + activityStats.subagent.avg) / 4).toLocaleString()}</Text>
-				</Box>
+				</Box> */}
 			</Box>
 		)}
 	</TitledBox>
 }
 
-export default function Summary({ width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null }) {
+export default function Summary({ width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null, sessionMetadata = null }) {
 	// Calculate statistics from logs
 	const totalUsage = logs.reduce((sum, log) => sum + (log.usage || 0), 0);
 
@@ -169,8 +190,9 @@ export default function Summary({ width = 80, logs = [], project = 'Unknown Proj
 		{ label: 'Agents', value: tokensByType.subagent, color: 'red' },
 	];
 
-	// Create single stacked bar chart
-	const maxBarWidth = width - 2;
+	// Calculate available width for TokenDistribution box
+	// Total width minus Info box width
+	const tokenDistributionWidth = width - 72 - 2;
 
 	// Calculate duration (elapsed time between first and last timestamp)
 	const timestamps = logs.map(log => log.timestamp).filter(Boolean);
@@ -354,56 +376,65 @@ export default function Summary({ width = 80, logs = [], project = 'Unknown Proj
 	}
 
 	return (
-		<Box flexDirection="column">
-			<TitledBox
-				borderStyle="single"
-				borderColor="gray"
-				titles={['Summary']}
-				padding={1}
-			>
-				<Box
-					flexDirection="column"
+		<Box
+			flexDirection="column"
+		>
+			<Box>
+				<TitledBox
+					borderStyle="single"
+					borderColor="gray"
+					titles={['Info']}
+					padding={1}
+					width={72}
+					height={9}
 				>
-					<Box>
-						<Text dimColor>Project: </Text>
-						<Text>{}</Text>
+					<Box
+						flexDirection="column"
+						// paddingLeft={1}
+						// paddingRight={1}
+					>
+						<Box>
+							<Text dimColor>Project: </Text>
+							<Text>{project || 'N/A'}</Text>
+						</Box>
+						<Box>
+							<Text dimColor>Created At: </Text>
+							<Text>{sessionMetadata?.created ? new Date(sessionMetadata.created).toLocaleString() : 'N/A'}</Text>
+						</Box>
+						<Box>
+							<Text dimColor>Last Modified: </Text>
+							<Text>{sessionMetadata?.modified ? new Date(sessionMetadata.modified).toLocaleString() : 'N/A'}</Text>
+						</Box>
+						<Box>
+							<Text dimColor>Logs: </Text>
+							<Text>{(sessionMetadata?.logCount || logs.length).toLocaleString()}</Text>
+						</Box>
+						<Box>
+							<Text dimColor>Duration: </Text>
+							<Text>{duration}</Text>
+						</Box>
+						<Box>
+							<Text dimColor>Usage: </Text>
+							<Text>{totalUsage.toLocaleString()} tokens</Text>
+						</Box>
+						{/* <Box>
+							<Text dimColor>Tool Calls:</Text>
+							<Text>{toolCalls}</Text>
+						</Box>
+						<Box>
+							<Text dimColor>Agent Calls:</Text>
+							<Text>{agentCalls}</Text>
+						</Box> */}
 					</Box>
-					<Box>
-						<Text dimColor>Created At: </Text>
-						<Text>{}</Text>
-					</Box>
-					<Box>
-						<Text dimColor>Last Modified: </Text>
-						<Text>{}</Text>
-					</Box>
-					<Box>
-						<Text dimColor>Logs: </Text>
-						<Text>{}</Text>
-					</Box>
-					<Box>
-						<Text dimColor>Duration: </Text>
-						<Text>{duration}</Text>
-					</Box>
-					<Box>
-						<Text dimColor>Usage: </Text>
-						<Text>{totalUsage.toLocaleString()} tokens</Text>
-					</Box>
-					<Box>
-						<Text dimColor>Tool Calls: </Text>
-						<Text>{toolCalls}</Text>
-					</Box>
-					<Box>
-						<Text dimColor>Agent Calls: </Text>
-						<Text>{agentCalls}</Text>
-					</Box>
-				</Box>
-			</TitledBox>
+				</TitledBox>
 
-			<TokenDistribution
-				data={chartData}
-				totalUsage={totalUsage}
-				maxWidth={maxBarWidth}
-			/>
+				<TokenDistribution
+					data={chartData}
+					totalUsage={totalUsage}
+					maxWidth={tokenDistributionWidth}
+				/>
+			</Box>
+
 
 			<ActivityChart
 				activityByType={activityByType}

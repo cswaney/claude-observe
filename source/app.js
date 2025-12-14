@@ -18,6 +18,7 @@ export default function App({sessionDir = './data', sessionId = null}) {
 	const [currentSessionPath, setCurrentSessionPath] = useState(null);
 	const [currentProject, setCurrentProject] = useState(null);
 	const [currentSessionDir, setCurrentSessionDir] = useState(null);
+	const [currentSessionMetadata, setCurrentSessionMetadata] = useState(null); // Store created/modified/logCount
 
 	// View state
 	const [viewMode, setViewMode] = useState('browser'); // 'browser', 'session', or 'detail'
@@ -42,6 +43,7 @@ export default function App({sessionDir = './data', sessionId = null}) {
 		subagent: true,
 	});
 	const [savedFilters, setSavedFilters] = useState(null);
+	const [savedSelectedIndex, setSavedSelectedIndex] = useState(null); // Save selectedIndex when entering agent view
 	const [searchMode, setSearchMode] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [activeSearch, setActiveSearch] = useState('');
@@ -167,11 +169,15 @@ export default function App({sessionDir = './data', sessionId = null}) {
 				const result = parseSession(null, null, currentSessionPath);
 				setData(result);
 				setError(null);
+				// Switch to session view after data is loaded
+				setViewMode('session');
 			} else if (sessionId) {
 				// Load from passed sessionDir/sessionId
 				const result = parseSession(sessionDir, sessionId);
 				setData(result);
 				setError(null);
+				// Switch to session view after data is loaded
+				setViewMode('session');
 			}
 		} catch (err) {
 			setError(err.message);
@@ -269,8 +275,11 @@ export default function App({sessionDir = './data', sessionId = null}) {
 
 	// Calculate viewport size
 	const terminalHeight = stdout?.rows || 40;
-	const availableHeight = terminalHeight - 14;
-	const viewportSize = Math.min(25, Math.max(15, availableHeight));
+
+	// Calculate LogsList height based on terminal size
+	// Summary takes: Info box (10) + Usage box (10) + Activity chart (~12) = ~32 lines
+	// Plus Session outer box (4), help text (2), search field toggle (2) = ~40 lines overhead
+	const logsListHeight = Math.max(15, terminalHeight - 40);
 
 	// Handle keyboard input
 	useInput((input, key) => {
@@ -414,6 +423,11 @@ export default function App({sessionDir = './data', sessionId = null}) {
 						setActiveFilters(savedFilters);
 						setSavedFilters(null);
 					}
+					// Restore saved selected index when exiting agent view
+					if (savedSelectedIndex !== null) {
+						setSelectedIndex(savedSelectedIndex);
+						setSavedSelectedIndex(null);
+					}
 					return;
 				}
 			}
@@ -470,7 +484,14 @@ export default function App({sessionDir = './data', sessionId = null}) {
 					setLastSelectedSession(session.path);
 					setCurrentSessionPath(session.path);
 					setCurrentSessionDir(path.dirname(session.path));
-					setCurrentProject(session.projectName);
+					// Use session.project (the cwd) instead of projectName (directory name)
+					setCurrentProject(session.project);
+					// Store session metadata (created, modified, logCount)
+					setCurrentSessionMetadata({
+						created: session.created,
+						modified: session.modified,
+						logCount: session.logCount
+					});
 					// Reset filters when navigating from browser to session
 					setActiveFilters({
 						user: true,
@@ -480,7 +501,7 @@ export default function App({sessionDir = './data', sessionId = null}) {
 						subagent: true,
 					});
 					setSavedFilters(null);
-					setViewMode('session');
+					// viewMode will be set in useEffect after data loads
 					setSelectedIndex(0);
 				}
 			}
@@ -514,6 +535,8 @@ export default function App({sessionDir = './data', sessionId = null}) {
 						};
 						setAgentViewData(agentData);
 						setViewMode('session'); // Stay in session mode but with agent logs
+						// Save current selected index before entering agent view
+						setSavedSelectedIndex(selectedIndex);
 						setSelectedIndex(0);
 						setDetailScrollOffset(0);
 						// Save current filters and reset when entering agent view
@@ -691,12 +714,13 @@ export default function App({sessionDir = './data', sessionId = null}) {
 			startDatetime={data?.startDatetime}
 			agentViewData={agentViewData}
 			selectedIndex={selectedIndex}
-			viewportSize={viewportSize}
 			activeFilters={activeFilters}
 			searchMode={searchMode}
 			searchQuery={searchQuery}
 			activeSearch={activeSearch}
 			collapsedStates={collapsedStates}
+			sessionMetadata={currentSessionMetadata}
+			logsListHeight={logsListHeight}
 		/>
 	);
 }

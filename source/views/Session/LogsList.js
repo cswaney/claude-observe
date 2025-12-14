@@ -16,6 +16,7 @@ export default function LogsList({
 	filteredLogs = [],
 	startIndex = null,
 	endIndex = null,
+	height = null,
 }) {
 	// Track active agents and assign colors
 	const activeAgents = new Map(); // agentId -> { pos, color }
@@ -95,13 +96,13 @@ export default function LogsList({
 			const arrowLength = agentData.pos;
 			// The corner "╯" needs to be at position (11 + arrowLength) to align with vertical bar
 			// "  agentId [timestamp] ◂" - variable length based on agentId
-			const prefix = `  ${log.agentId} [${log.timestamp}] ◂`;
+			const prefix = `[${log.timestamp}] agent: ${log.agentId} ◂`;
 			const prefixLength = prefix.length;
 			// We need: prefixLength + dashCount = 11 + arrowLength (position of corner)
-			const dashCount = (11 + arrowLength) - prefixLength;
+			const dashCount = (11 + 12 + arrowLength) - prefixLength;
 
 			// Build the stop arrow with spacing for alignment
-			const textBeforeArrow = `  ${log.agentId} `;
+			const textBeforeArrow = ` end`;
 			const timestamp = `[${log.timestamp}]`;
 			const arrow = ' ◂' + '─'.repeat(dashCount);
 			const totalPrefixLen = textBeforeArrow.length + timestamp.length + arrow.length;
@@ -112,8 +113,8 @@ export default function LogsList({
 			return (
 				<Box>
 					<Text color={agentData.color}>
-						{textBeforeArrow}
 						<Text dimColor>{timestamp}</Text>
+						{textBeforeArrow}
 						{arrow}{'╯'}
 					</Text>
 					{renderVerticalBarsSuffix(totalPrefixLen + 1, `${log.id}-stop`)}
@@ -131,7 +132,7 @@ export default function LogsList({
 		if (log.type === 'subagent' && !log.isLast) {
 			const agent = activeAgents.get(log.agentId);
 			// "> agentId [timestamp] " - variable length based on agentId
-			const prefix = `> ${log.agentId} [${log.timestamp}] `;
+			const prefix = `[${log.timestamp}] agent; ${log.agentId} `;
 			const prefixLength = prefix.length;
 			// Corner "╮" should be at position (11 + agent.pos)
 			const dashCount = (11 + agent.pos) - prefixLength;
@@ -143,7 +144,7 @@ export default function LogsList({
 					{/* Subagent start arrow row */}
 					<Box>
 						<Text inverse={isSelected} color={agent?.color}>
-							{'> '}{log.agentId} <Text dimColor>[{log.timestamp}]</Text> {'─'.repeat(dashCount)}{'╮'}
+							<Text dimColor>[{log.timestamp}]</Text> agent: {log.agentId} {'─'.repeat(dashCount)}{'╮'}
 						</Text>
 						{renderVerticalBarsSuffix(arrowEndPos, `${log.id}-start-title`)}
 					</Box>
@@ -163,17 +164,20 @@ export default function LogsList({
 		// Add emojis for special types
 		let displayTitle = log.type;
 		if (log.type === 'tool') {
-			displayTitle = '🔧 tool';
+			displayTitle = 'tool';
 		} else if (log.type === 'thinking') {
-			displayTitle = '💭 thinking';
+			displayTitle = 'thinking';
 		}
+
+		let selectIconBefore = '> ';
+		let selectIconAfter = '⌄ ';
 
 		// Generate preview for title line (only when collapsed)
 		const firstLine = log.content?.split('\n')[0] || '';
 		// Calculate available width for preview
 		// Format: "[HH:MM:SS] > displayTitle preview"
 		const prefixLength = 1 + log.timestamp.length + 2 + 2 + displayTitle.length + 1; // brackets, spaces, arrow
-		const availableWidth = Math.max(0, width - prefixLength - 7); // -7 buffer for borders/padding
+		const availableWidth = Math.max(0, width - prefixLength - 12); // -7 buffer for borders/padding
 		const preview = firstLine.length > availableWidth ? firstLine.substring(0, availableWidth) + '...' : firstLine;
 		const previewText = (isCollapsed && preview) ? ` ${preview}` : '';
 
@@ -187,13 +191,16 @@ export default function LogsList({
 			<Box key={log.id} flexDirection="column">
 				{/* Title Row */}
 				<Box>
-					<Text inverse={isSelected}>
-						<Text dimColor>[{log.timestamp}] </Text>
-						<Text>{isCollapsed ? '> ' : '⌄ '}</Text>
+					<Text
+						// inverse={isSelected}
+						bold={isSelected}
+					>
+						<Text dimColor={!isSelected}>[{log.timestamp}] </Text>
+						<Text dimColor={!isSelected}>{isCollapsed ? selectIconBefore : selectIconAfter}</Text>
 						<Text>
-							{displayTitle}
+							{displayTitle}:
 						</Text>
-						<Text dimColor>{previewText}</Text>
+						<Text dimColor={!isSelected}>{previewText}</Text>
 					</Text>
 					{renderVerticalBarsSuffix(1 + log.timestamp.length + 2 + 2 + displayTitle.length + previewText.length, `${log.id}-title`)}
 				</Box>
@@ -233,9 +240,10 @@ export default function LogsList({
 			borderStyle='single'
 			borderColor='gray'
 			padding={1}
-			marginTop={1}
+			// marginTop={1}
 			key={listViewKey}
 			titles={["Logs"]}
+			height={height}
 		>
 			<Box flexDirection="column">
 				{hasLogsAbove && (

@@ -15,10 +15,10 @@ export default function App({ sessionDir = './data', sessionId = null }) {
     // Data state
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
-    const [currentSessionPath, setCurrentSessionPath] = useState(null);
     const [currentProject, setCurrentProject] = useState(null);
     const [currentSessionDir, setCurrentSessionDir] = useState(null);
-    const [currentSessionMetadata, setCurrentSessionMetadata] = useState(null); // Store created/modified/logCount
+    const [currentSessionPath, setCurrentSessionPath] = useState(null);
+    const [currentSessionMetadata, setCurrentSessionMetadata] = useState(null);
 
     // View state
     const [viewMode, setViewMode] = useState('browser'); // 'browser', 'session', or 'detail'
@@ -31,8 +31,14 @@ export default function App({ sessionDir = './data', sessionId = null }) {
     const [browserFilterMode, setBrowserFilterMode] = useState(false);
     const [browserFilterInput, setBrowserFilterInput] = useState('');
     const [browserFilterQuery, setBrowserFilterQuery] = useState('');
+    const activeFilterQuery = browserFilterMode ? browserFilterInput : browserFilterQuery;
+    const filteredBrowserItems = browserItems.filter(item => {
+        if (!activeFilterQuery) return true;
+        const projectPath = item.project || item.projectName || '';
+        return projectPath.toLowerCase().includes(activeFilterQuery.toLowerCase());
+    });
 
-    // Session/List state
+    // Session state
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [collapsedStates, setCollapsedStates] = useState({});
     const [activeFilters, setActiveFilters] = useState({
@@ -51,7 +57,8 @@ export default function App({ sessionDir = './data', sessionId = null }) {
     // Detail state
     const [detailScrollOffset, setDetailScrollOffset] = useState(0);
 
-    // Scan for projects and sessions on mount
+
+    // Load project and session data on mount
     useEffect(() => {
         const claudeDir = path.join(os.homedir(), '.claude', 'projects');
 
@@ -69,7 +76,6 @@ export default function App({ sessionDir = './data', sessionId = null }) {
                 const projectPath = path.join(claudeDir, projectName);
                 const projectStats = fs.statSync(projectPath);
 
-                // Find project cwd by checking session files until we find one
                 const sessionFiles = fs.readdirSync(projectPath)
                     .filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
 
@@ -103,9 +109,8 @@ export default function App({ sessionDir = './data', sessionId = null }) {
                             birthtime: metadata.created ? new Date(metadata.created) : new Date()
                         };
                     })
-                    .sort((a, b) => b.mtime - a.mtime); // Sort most recent first
+                    .sort((a, b) => b.mtime - a.mtime);
 
-                // Get the most recent session mtime as the project's last modified time
                 const lastModified = sessions.length > 0 ? sessions[0].mtime : projectStats.mtime;
 
                 return {
@@ -124,19 +129,15 @@ export default function App({ sessionDir = './data', sessionId = null }) {
         }
     }, []);
 
-    // Build flat list of all sessions for navigation
+    // Build flat list of sessions on project change
     useEffect(() => {
         const items = [];
-        // Sort projects alphabetically
         const sortedProjects = [...projects].sort((a, b) =>
-            a.name.localeCompare(b.name)
+            a.name.localeCompare(b.name) // sort alphabetically
         );
         sortedProjects.forEach(project => {
-            // Get the actual filesystem path from the project.path
-            // This is more reliable than trying to parse the dash-separated name
             const projectPath = project.path;
-
-            // Sessions are already sorted by mtime (most recent first)
+            // Sessions are already sorted by mtime
             project.sessions.forEach(session => {
                 items.push({
                     ...session,
@@ -147,15 +148,7 @@ export default function App({ sessionDir = './data', sessionId = null }) {
         setBrowserItems(items);
     }, [projects]);
 
-    // Filter browser items based on active filter (or current input if in filter mode)
-    const activeFilterQuery = browserFilterMode ? browserFilterInput : browserFilterQuery;
-    const filteredBrowserItems = browserItems.filter(item => {
-        if (!activeFilterQuery) return true;
-        const projectPath = item.project || item.projectName || '';
-        return projectPath.toLowerCase().includes(activeFilterQuery.toLowerCase());
-    });
-
-    // Load session when sessionId changes or when a new session is selected
+    // Load session data and switch to session view on session select
     useEffect(() => {
         if (!currentSessionPath && !sessionId) {
             // No session selected, stay in browser mode
@@ -169,16 +162,13 @@ export default function App({ sessionDir = './data', sessionId = null }) {
                 const result = parseSession(null, null, currentSessionPath);
                 setData(result);
                 setError(null);
-                // Switch to session view after data is loaded
                 setViewMode('session');
             } else if (sessionId) {
                 // Load from passed sessionDir/sessionId
                 const result = parseSession(sessionDir, sessionId);
                 setData(result);
                 setError(null);
-                // Switch to session view after data is loaded
                 setViewMode('session');
-                set(0);
             }
         } catch (err) {
             setError(err.message);
@@ -195,6 +185,15 @@ export default function App({ sessionDir = './data', sessionId = null }) {
         });
         setCollapsedStates(initial);
     }, [data?.logs, agentViewData]);
+
+    // Reset selected index on navigation to session from browser
+    useEffect(() => {
+        if (viewMode == 'session') {
+            if (!savedSelectedIndex) {
+                setSelectedIndex(0);
+            }
+        }
+    }, [viewMode])
 
     // Use agent logs if in agent view, otherwise use session logs
     const currentLogs = agentViewData ? agentViewData.logs : (data?.logs || []);
@@ -282,7 +281,6 @@ export default function App({ sessionDir = './data', sessionId = null }) {
     // Plus Session outer box (4), help text (2), search field toggle (2) = ~40 lines overhead
     const logsListHeight = Math.max(15, terminalHeight - 40);
 
-    // Handle keyboard input
     useInput((input, key) => {
 
         if (viewMode === 'browser') {
@@ -379,7 +377,6 @@ export default function App({ sessionDir = './data', sessionId = null }) {
                         subagent: true,
                     });
                     setSavedFilters(null);
-                    setSelectedIndex(0);
                 }
             }
 
@@ -610,7 +607,6 @@ export default function App({ sessionDir = './data', sessionId = null }) {
         }
     });
 
-    // Render error state
     if (error) {
         return (
             <Box flexDirection="column">
@@ -629,21 +625,28 @@ export default function App({ sessionDir = './data', sessionId = null }) {
         );
     }
 
-    // Render Browser view
-    if (viewMode === 'browser') {
+    if (viewMode === 'session') {
         return (
-            <Browser
+            <Session
                 width={width}
-                browserItems={filteredBrowserItems}
+                logs={data?.logs || []}
+                filteredLogs={filteredLogs}
+                sessionId={data?.sessionId}
+                project={currentProject || data?.project}
+                startDatetime={data?.startDatetime}
+                agentViewData={agentViewData}
                 selectedIndex={selectedIndex}
-                browserFilterMode={browserFilterMode}
-                browserFilterInput={browserFilterInput}
-                browserFilterQuery={browserFilterQuery}
+                activeFilters={activeFilters}
+                searchMode={searchMode}
+                searchQuery={searchQuery}
+                activeSearch={activeSearch}
+                collapsedStates={collapsedStates}
+                sessionMetadata={currentSessionMetadata}
+                logsListHeight={logsListHeight}
             />
         );
     }
 
-    // Render Detail view
     if (viewMode === 'detail') {
         const selectedLog = filteredLogs[selectedIndex];
         return (
@@ -659,24 +662,14 @@ export default function App({ sessionDir = './data', sessionId = null }) {
         );
     }
 
-    // Render Session view
     return (
-        <Session
+        <Browser
             width={width}
-            logs={data?.logs || []}
-            filteredLogs={filteredLogs}
-            sessionId={data?.sessionId}
-            project={currentProject || data?.project}
-            startDatetime={data?.startDatetime}
-            agentViewData={agentViewData}
+            browserItems={filteredBrowserItems}
             selectedIndex={selectedIndex}
-            activeFilters={activeFilters}
-            searchMode={searchMode}
-            searchQuery={searchQuery}
-            activeSearch={activeSearch}
-            collapsedStates={collapsedStates}
-            sessionMetadata={currentSessionMetadata}
-            logsListHeight={logsListHeight}
+            browserFilterMode={browserFilterMode}
+            browserFilterInput={browserFilterInput}
+            browserFilterQuery={browserFilterQuery}
         />
     );
 }

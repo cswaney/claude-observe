@@ -7,6 +7,7 @@ import { parseSession, parseLogFile, getSessionMetadata } from './parser.js';
 import Browser from './views/Browser/index.js';
 import Session from './views/Session/index.js';
 import Details from './views/Details/index.js';
+import Test from './views/Test/index.js';
 
 export default function App({ sessionDir = './data', sessionId = null }) {
     const { stdout } = useStdout();
@@ -21,8 +22,11 @@ export default function App({ sessionDir = './data', sessionId = null }) {
     const [currentSessionMetadata, setCurrentSessionMetadata] = useState(null);
 
     // View state
-    const [viewMode, setViewMode] = useState('browser'); // 'browser', 'session', or 'detail'
+    const [viewMode, setViewMode] = useState('browser'); // 'browser', 'session', 'detail', or 'test'
     const [agentViewData, setAgentViewData] = useState(null); // {agentId, logs, parentLogs}
+
+    // Test state
+    const [testCounter, setTestCounter] = useState(0);
 
     // Browser state
     const [projects, setProjects] = useState([]);
@@ -581,28 +585,28 @@ export default function App({ sessionDir = './data', sessionId = null }) {
                     setSelectedIndex(prev => prev + 1);
                     setDetailScrollOffset(0);
                 }
+            } else if (input === 'x') {
+                // Secret key to enter test mode
+                setViewMode('test');
+                setTestCounter(0);
+                return;
             } else if (key.escape) {
-                setViewMode('browser');
-                setSavedFilters(null);
-                if (lastSelectedSession) {
-                    const index = browserItems.findIndex(
-                        session => session.path === lastSelectedSession
-                    );
-                    if (index !== -1) {
-                        setSelectedIndex(index);
-                    } else {
-                        setSelectedIndex(0);
-                    }
-                } else {
-                    setSelectedIndex(0);
-                }
-                setCurrentSessionPath(null);
-                setCurrentProject(null);
-                setData(null);
-                setAgentViewData(null);
+                setViewMode('session');
                 return;
             }
 
+            return;
+        }
+
+        if (viewMode === 'test') {
+            if (key.rightArrow) {
+                setTestCounter(prev => prev + 1);
+            } else if (key.leftArrow) {
+                setTestCounter(prev => Math.max(0, prev - 1));
+            } else if (key.escape) {
+                setViewMode('browser');
+                return;
+            }
             return;
         }
     });
@@ -649,17 +653,28 @@ export default function App({ sessionDir = './data', sessionId = null }) {
 
     if (viewMode === 'detail') {
         const selectedLog = filteredLogs[selectedIndex];
+        if (!selectedLog) return null;
+
+        // Simple test: render minimal detail view
         return (
-            <Details
-                width={width}
-                log={selectedLog}
-                sessionId={data?.sessionId}
-                project={currentProject || data?.project}
-                agentViewData={agentViewData}
-                detailScrollOffset={detailScrollOffset}
-                availableHeight={30}
-            />
+            <Box flexDirection="column" width={width}>
+                <Box borderStyle="single" borderColor="gray" padding={1}>
+                    <Box flexDirection="column">
+                        <Text bold>Log: {selectedLog.uuid || selectedLog.id}</Text>
+                        <Text> </Text>
+                        <Text>Type: {selectedLog.type}</Text>
+                        <Text>Content preview: {(selectedLog.content || '').substring(0, 100)}</Text>
+                    </Box>
+                </Box>
+                <Box justifyContent="center" marginTop={1}>
+                    <Text dimColor>Esc: Back | ←/→: Prev/Next Log</Text>
+                </Box>
+            </Box>
         );
+    }
+
+    if (viewMode === 'test') {
+        return <Test counter={testCounter} />;
     }
 
     return (

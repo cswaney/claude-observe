@@ -23,6 +23,9 @@ export default function Session({
 }) {
 	// Calculate how many lines a log takes
 	const getLogHeight = (log) => {
+		// Safety check for undefined logs
+		if (!log) return 1;
+
 		if (log.type === 'subagent' && log.isLast) {
 			// Agent end: 1 line
 			return 1;

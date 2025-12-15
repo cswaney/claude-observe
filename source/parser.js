@@ -61,15 +61,18 @@ export function parseLogFile(filePath) {
 						content: content.text,
 						collapsed: true,
 						usage: getTotalUsage(message.usage),
+						rawLog: entry, // Preserve full JSONL entry
 					});
 				} else if (content.type === 'thinking') {
 					logs.push({
 						uuid: entry.uuid,
 						type: 'thinking',
 						timestamp: formatTimestamp(entry.timestamp),
-					isoTimestamp: entry.timestamp,						content: content.thinking,
+						isoTimestamp: entry.timestamp,
+						content: content.thinking,
 						collapsed: true,
 						usage: getTotalUsage(message.usage),
+						rawLog: entry, // Preserve full JSONL entry
 					});
 				} else if (content.type === 'tool_use') {
 					logs.push({
@@ -82,9 +85,38 @@ export function parseLogFile(filePath) {
 						usage: getTotalUsage(message.usage),
 						toolName: content.name,
 						toolInput: content.input,
+						rawLog: entry, // Preserve full JSONL entry
+					});
+				} else if (content.type === 'tool_result') {
+					// Find the matching tool_use to get the tool name
+					let toolName = null;
+					for (const log of logs) {
+						if (log.rawLog?.message?.content) {
+							for (const c of log.rawLog.message.content) {
+								if (c.type === 'tool_use' && c.id === content.tool_use_id) {
+									toolName = c.name;
+									break;
+								}
+							}
+						}
+						if (toolName) break;
+					}
+
+					logs.push({
+						uuid: entry.uuid,
+						type: 'tool',
+						timestamp: formatTimestamp(entry.timestamp),
+						content: toolName ? `${toolName} (result)` : 'Result',
+						isoTimestamp: entry.timestamp,
+						collapsed: true,
+						usage: getTotalUsage(message.usage),
+						toolName: toolName,
+						toolResult: content.content, // Store the result content
+						toolUseId: content.tool_use_id, // Store the tool_use_id for reference
+						isError: content.is_error || false,
+						rawLog: entry, // Preserve full JSONL entry
 					});
 				}
-				// Note: tool_result will be handled separately if needed
 			}
 		}
 	}

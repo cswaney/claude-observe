@@ -1,12 +1,51 @@
 # TODO
 
+## Bug
+
+- [ ] Multiple logs displayed using `<-/->` is details view. After pressing `->` a few times, a second log detail box is displayed below the first. These can accumulate after multiple key presses.
+- [x] Hidden logs? The assistant log at 07:46:16 in 7e462c02-4cf8-4535-8d32-6e6242eaab26 only appears *after* you scroll past it!
+- [x] Subagent log error while displaying session
+
+```shell
+  ERROR  Cannot read properties of undefined (reading 'type')
+
+ dist/cli.js:750:13
+
+ 747:   logsListHeight = 15
+ 748: }) {
+ 749:   const getLogHeight = (log) => {
+ 750:     if (log.type === "subagent" && log.isLast) {
+ 751:       return 1;
+ 752:     }
+ 753:     if (log.type === "subagent" && !log.isLast) {
+
+ - getLogHeight (dist/cli.js:750:13)
+ - Session (dist/cli.js:771:27)
+ - Object.react_stack_bottom_frame (node_modules/react-reconciler/cjs/react-reconciler.development.js:17596:20)
+ - renderWithHooks (node_modules/react-reconciler/cjs/react-reconciler.development.js:5335:22)
+ - updateFunctionComponent (node_modules/react-reconciler/cjs/react-reconciler.development.js:7720:19)
+ - beginWork (node_modules/react-reconciler/cjs/react-reconciler.development.js:9277:18)
+ - runWithFiberInDEV (node_modules/react-reconciler/cjs/react-reconciler.development.js:2505:30)
+ - performUnitOfWork (node_modules/react-reconciler/cjs/react-reconciler.development.js:15273:22)
+ - workLoopSync (node_modules/react-reconciler/cjs/react-reconciler.development.js:15099:41)
+ - renderRootSync (node_modules/react-reconciler/cjs/react-reconciler.development.js:15080:11)
+```
+
+## Refactor
+
+- [ ] Why is flattened session data a useEffect?
+- [ ] Why do we have currentSessionPath and sessionId?
+- [ ] Why is collapsed state changed or log data change?
+- [ ] What's the deal with agentViewData?
+
 ## Pending Features
 
 ### Global
 
-- [ ] Live data updates!
 - [ ] Add `logdir` arg to CLI (default: ~/.claude/projects)
+- [ ] Display tool call and result side-by-side in detail view?!?
 - [ ] Allow users to delete sessions? projects?
+- [ ] Live data updates!
 
 ### Browser
 
@@ -99,6 +138,38 @@
 - [ ] Prev-Next navigation
 
 #### Tool
+
+```json
+{
+  "parentUuid": "33e3df82-7b78-44aa-9a24-df008aa3e149",
+  "isSidechain": false,
+  "userType": "external",
+  "cwd": "/Users/colinswaney/Desktop/claude-observe",
+  "sessionId": "7e462c02-4cf8-4535-8d32-6e6242eaab26",
+  "version": "2.0.62",
+  "gitBranch": "refactor-details",
+  "slug": "harmonic-hugging-stream",
+  "type": "user",
+  "message": {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "content": "<tool_use_error>String to replace not found in file.\nString: \t\t\t\t});\n\t\t\t}\n\t\t\t} else if (content.type === 'tool_result') {\n\t\t\t\t// Find the matching tool_use to get the tool name</tool_use_error>",
+        "is_error": true,
+        "tool_use_id": "toolu_01DNFihTSQbJtRuu3mY5eGcG"
+      }
+    ]
+  },
+  "uuid": "bc38d6e4-9f8b-4a06-adc1-d078a1482d89",
+  "timestamp": "2025-12-14T18:26:37.708Z",
+  "toolUseResult": "Error: String to replace not found in file.\nString: \t\t\t\t});\n\t\t\t}\n\t\t\t} else if (content.type === 'tool_result') {\n\t\t\t\t// Find the matching tool_use to get the tool name"
+}
+```
+
+```shell
+
+```
 
 ```json
 {

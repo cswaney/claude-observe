@@ -3,7 +3,9 @@ import { Box, Text } from 'ink';
 import { TitledBox } from '@mishieck/ink-titled-box';
 
 // Color palette for subagents
-const AGENT_COLORS = ['#2ecc71', '#3498db', '#9b59b6', '#f1c40f', '#e67e22', '#e74c3c'];
+const AGENT_COLORS = ['#f1c40f', '#e67e22', '#e74c3c', '#2ecc71'];
+const TOOL_COLOR = '#3498db';
+const THINKING_COLOR = '#9b59b6';
 
 export default function LogsList({
 	width = 80,
@@ -48,13 +50,14 @@ export default function LogsList({
 			activeAgents.set(log.agentId, {
 				pos: arrowLength,  // Position where the vertical bar will be (in dashes)
 				color: agentColorMap.get(log.agentId),
+				index: index,
 			});
 		}
 
 		// Build vertical bars suffix (comes AFTER the message content)
 		// Returns JSX with colored bars positioned at exact arrow endpoint positions
 		const renderVerticalBarsSuffix = (prefixLength = 0, keyPrefix = '') => {
-			// Get current active agents each time this is called (not cached)
+
 			const currentActiveAgents = Array.from(activeAgents.entries());
 			if (currentActiveAgents.length === 0) return null;
 
@@ -96,24 +99,25 @@ export default function LogsList({
 			const arrowLength = agentData.pos;
 			// The corner "╯" needs to be at position (11 + arrowLength) to align with vertical bar
 			// "  agentId [timestamp] ◂" - variable length based on agentId
-			const prefix = `[${log.timestamp}] agent: ${log.agentId} ◂`;
+			const prefix = `[${log.timestamp}] • agent: ${log.agentId} ◂`;
 			const prefixLength = prefix.length;
 			// We need: prefixLength + dashCount = 11 + arrowLength (position of corner)
 			const dashCount = (11 + 12 + arrowLength) - prefixLength;
 
 			// Build the stop arrow with spacing for alignment
-			const textBeforeArrow = ` end`;
+			const textBeforeArrow = `   end`;
 			const timestamp = `[${log.timestamp}]`;
 			const arrow = ' ◂' + '─'.repeat(dashCount);
 			const totalPrefixLen = textBeforeArrow.length + timestamp.length + arrow.length;
 
 			// Remove this agent before rendering suffix bars so it doesn't show its own bar
+			const isSelected = agentData.index === selectedIndex;
 			activeAgents.delete(log.agentId);
 
 			return (
 				<Box>
-					<Text color={agentData.color}>
-						<Text dimColor>{timestamp}</Text>
+					<Text bold={isSelected} color={agentData.color}>
+						<Text bold={isSelected} dimColor={!isSelected}>{timestamp}</Text>
 						{textBeforeArrow}
 						{arrow}{'╯'}
 					</Text>
@@ -132,7 +136,7 @@ export default function LogsList({
 		if (log.type === 'subagent' && !log.isLast) {
 			const agent = activeAgents.get(log.agentId);
 			// "> agentId [timestamp] " - variable length based on agentId
-			const prefix = `[${log.timestamp}] agent; ${log.agentId} `;
+			const prefix = `[${log.timestamp}] • agent; ${log.agentId} `;
 			const prefixLength = prefix.length;
 			// Corner "╮" should be at position (11 + agent.pos)
 			const dashCount = (11 + agent.pos) - prefixLength;
@@ -143,8 +147,10 @@ export default function LogsList({
 				<Box key={log.id} flexDirection="column">
 					{/* Subagent start arrow row */}
 					<Box>
-						<Text inverse={isSelected} color={agent?.color}>
-							<Text dimColor>[{log.timestamp}]</Text> agent: {log.agentId} {'─'.repeat(dashCount)}{'╮'}
+						<Text bold={isSelected} color={agent?.color}>
+							<Text bold={isSelected} dimColor={!isSelected}>
+								[{log.timestamp}]
+							</Text> • agent: {log.agentId} {'─'.repeat(dashCount)}{'╮'}
 						</Text>
 						{renderVerticalBarsSuffix(arrowEndPos, `${log.id}-start-title`)}
 					</Box>
@@ -163,10 +169,13 @@ export default function LogsList({
 		// Regular log entries (user, assistant, tool, thinking)
 		// Add emojis for special types
 		let displayTitle = log.type;
+		let displayColor = "white";
 		if (log.type === 'tool') {
 			displayTitle = 'tool';
+			displayColor = TOOL_COLOR;
 		} else if (log.type === 'thinking') {
 			displayTitle = 'thinking';
+			displayColor = THINKING_COLOR;
 		}
 
 		let selectIconBefore = '> ';
@@ -192,17 +201,16 @@ export default function LogsList({
 				{/* Title Row */}
 				<Box>
 					<Text
-						// inverse={isSelected}
 						bold={isSelected}
 					>
 						<Text dimColor={!isSelected}>[{log.timestamp}] </Text>
 						<Text dimColor={!isSelected}>{isCollapsed ? selectIconBefore : selectIconAfter}</Text>
-						<Text>
+						<Text color={displayColor}>
 							{displayTitle}:
 						</Text>
 						<Text dimColor={!isSelected}>{previewText}</Text>
 					</Text>
-					{renderVerticalBarsSuffix(1 + log.timestamp.length + 2 + 2 + displayTitle.length + previewText.length, `${log.id}-title`)}
+					{renderVerticalBarsSuffix(2 + log.timestamp.length + 2 + 2 + displayTitle.length + previewText.length, `${log.id}-title`)}
 				</Box>
 
 				{/* Content Row (if expanded) - show up to 5 lines */}

@@ -1,17 +1,58 @@
-import React from 'react';
-import { Box, Text } from 'ink';
+import React, { useState, useEffect } from 'react';
+import { Box, Text, useInput } from 'ink';
+import { TitledBox } from '@mishieck/ink-titled-box';
 
-// Format token counts with k/M suffixes (imported from Summary.js pattern)
-function formatTokens(count) {
-  if (count >= 1000000) {
-    return (count / 1000000).toFixed(1) + 'M';
-  } else if (count >= 1000) {
-    return (count / 1000).toFixed(1) + 'k';
-  }
-  return count.toString();
+function typeDisplay(log) {
+    if (log.type === 'tool' && log.toolName) {
+        return `Tool (${log.toolName})`;
+    } else if (log.type === 'thinking') {
+        return 'Thinking';
+    } else if (log.type === 'user') {
+        return 'User';
+    } else if (log.type === 'assistant') {
+        return 'Assistant';
+    }
 }
 
-// Simple JSON syntax highlighter component
+function timestampDisplay(log) {
+    const display = log.isoTimestamp
+        ? new Date(log.isoTimestamp).toLocaleString()
+        : log.timestamp;
+
+    return display
+}
+
+function formatUsage(usage, rawLog) {
+    if (!usage) return 'N/A';
+
+    // Extract usage from raw log if available
+    const message = rawLog?.message;
+    const usageObj = message?.usage;
+
+    if (!usageObj) {
+        // Fallback: just show total
+        return `${formatTokens(usage)} total`;
+    }
+
+    const input = usageObj.input_tokens || 0;
+    const output = usageObj.output_tokens || 0;
+    const cacheRead = usageObj.cache_read_input_tokens || 0;
+    const cacheWrite = usageObj.cache_creation_input_tokens || 0;
+
+    const total = input + output + cacheRead + cacheWrite;
+
+    return `${formatTokens(total)} total (${formatTokens(input)} in, ${formatTokens(output)} out, ${formatTokens(cacheWrite)} cache write, ${formatTokens(cacheRead)} cache read)`;
+}
+
+function formatTokens(count) {
+    if (count >= 1000000) {
+        return (count / 1000000).toFixed(1) + 'M';
+    } else if (count >= 1000) {
+        return (count / 1000).toFixed(1) + 'k';
+    }
+    return count.toString();
+}
+
 function HighlightedJSON({ line }) {
   // Parse the line to identify JSON syntax elements
   const tokens = [];
@@ -71,190 +112,165 @@ function HighlightedJSON({ line }) {
   );
 }
 
-// Format usage object into readable string
-function formatUsage(usage, rawLog) {
-  if (!usage) return 'N/A';
-
-  // Extract usage from raw log if available
-  const message = rawLog?.message;
-  const usageObj = message?.usage;
-
-  if (!usageObj) {
-    // Fallback: just show total
-    return `${formatTokens(usage)} total`;
-  }
-
-  const input = usageObj.input_tokens || 0;
-  const output = usageObj.output_tokens || 0;
-  const cacheRead = usageObj.cache_read_input_tokens || 0;
-  const cacheWrite = usageObj.cache_creation_input_tokens || 0;
-
-  const total = input + output + cacheRead + cacheWrite;
-
-  return `${formatTokens(total)} total (${formatTokens(input)} in, ${formatTokens(output)} out, ${formatTokens(cacheWrite)} cache write, ${formatTokens(cacheRead)} cache read)`;
-}
-
 export default function Details({
-  width = 80,
-  log = null,
-  sessionId = null,
-  project = null,
-  agentViewData = null,
-  detailScrollOffset = 0,
-  availableHeight = 30
+    log,
+    project,
+    sessionId,
+    width,
+    contentHeight = 30,
 }) {
-  if (!log) return null;
 
-  // Access raw JSONL entry from log
-  const rawLog = log.rawLog;
+    const [scrollOffset, setScrollOffset] = useState(0);
 
-  // Get type-specific display name
-  let typeDisplay = log.type;
-  if (log.type === 'tool' && log.toolName) {
-    typeDisplay = `Tool (${log.toolName})`;
-  } else if (log.type === 'thinking') {
-    typeDisplay = 'Thinking';
-  } else if (log.type === 'user') {
-    typeDisplay = 'User';
-  } else if (log.type === 'assistant') {
-    typeDisplay = 'Assistant';
-  }
+    let contentLines = [];
+    let isJSON = false;
 
-  // Prepare content for display
-  let contentLines = [];
-  let isJSON = false;
-
-  if (log.type === 'tool') {
-    // For tool logs, show either input or result
-    if (log.toolInput) {
-      // This is a tool_use - show the input
-      const jsonStr = JSON.stringify(log.toolInput, null, 2);
-      contentLines = jsonStr.split('\n');
-      isJSON = true;
-    } else if (log.toolResult) {
-      // This is a tool_result - show the result
-      if (typeof log.toolResult === 'string') {
-        contentLines = log.toolResult.split('\n');
-        isJSON = false;
-      } else {
-        const jsonStr = JSON.stringify(log.toolResult, null, 2);
-        contentLines = jsonStr.split('\n');
-        isJSON = true;
-      }
+    if (log.type === 'tool') {
+        if (log.toolInput) {
+            contentLines = JSON.stringify(log.toolInput, null, 2).split('\n');
+            isJSON = true;
+        } else if (log.toolResult) {
+            if (typeof log.toolResult === 'string') {
+                contentLines = log.toolResult.split('\n');
+            } else {
+                contentLines = JSON.stringify(log.toolResult, null, 2).split('\n');
+                isJSON = true;
+            }
+        }
+    } else {
+        contentLines = (log.content || '').split('\n');
     }
-  } else {
-    // For other types, show the text content
-    contentLines = (log.content || '').split('\n');
-    isJSON = false;
-  }
 
-  const totalLines = contentLines.length;
+    const totalLines = contentLines.length;
+    const maxOffset = Math.max(0, totalLines - contentHeight);
+    const visibleLines = contentLines.slice(scrollOffset, scrollOffset + contentHeight);
+    const hasLinesAbove = scrollOffset > 0;
+    const hasLinesBelow = scrollOffset + contentHeight < totalLines;
 
-  // Adjust scroll offset if it's too far down
-  const maxOffset = Math.max(0, totalLines - availableHeight);
-  const actualOffset = Math.min(detailScrollOffset, maxOffset);
+    useEffect(() => {
+        setScrollOffset(0);
+    }, [log])
 
-  const visibleLines = contentLines.slice(actualOffset, actualOffset + availableHeight);
+    useInput((input, key) => {
+        if (key.upArrow) {
+            setScrollOffset(prev => Math.max(0, prev - 1));
+        } else if (key.downArrow) {
+            setScrollOffset(prev => Math.min(maxOffset, prev + 1));
+        } else if (input === 'u') {
+            setScrollOffset(prev => Math.max(0, prev - 10));
+        } else if (input === 'd') {
+            setScrollOffset(prev => Math.min(maxOffset, prev + 10));
+        } else if (input === 't') {
+            setScrollOffset(0);
+        } else if (input === 'b') {
+            setScrollOffset(maxOffset);
+        }
 
-  const hasLinesAbove = actualOffset > 0;
-  const hasLinesBelow = actualOffset + availableHeight < totalLines;
+        return;
+    })
 
-  // Format title
-  const detailTitle = `Log: ${log.uuid || log.id}`;
-
-  // Format timestamp for display
-  const timestampDisplay = log.isoTimestamp
-    ? new Date(log.isoTimestamp).toLocaleString()
-    : log.timestamp;
-
-  // Get model info from raw log if available
-  const model = rawLog?.message?.model || 'N/A';
-  const stopReason = rawLog?.message?.stop_reason || 'None';
-
-  return (
-    <Box flexDirection="column" width={width}>
-      <Box borderStyle="single" borderColor="gray" padding={1}>
+    return (
         <Box flexDirection="column">
-          <Text bold>{detailTitle}</Text>
-          <Text> </Text>
-          {/* Metadata Section */}
-          <Box flexDirection="column">
-            <Box>
-              <Text dimColor>Project: </Text>
-              <Text>{project || 'N/A'}</Text>
+            <TitledBox
+                flexDirection="column" width={width}
+                borderStyle="single"
+                borderColor="gray"
+                padding={1}
+                titles={[`Log: ${log.uuid || log.id}`]}
+            >
+                {/* Metadata */}
+                <TitledBox
+                    flexDirection="column"
+                    titles={["Info"]}
+                    borderColor="gray"
+                    borderStyle="single"
+                    padding={1}
+                >
+                    <Box>
+                        <Text dimColor>Project: </Text>
+                        <Text>{project || 'N/A'}</Text>
+                    </Box>
+                    <Box>
+                        <Text dimColor>Session: </Text>
+                        <Text>{sessionId || 'N/A'}</Text>
+                    </Box>
+                    <Box>
+                        <Text dimColor>Type: </Text>
+                        <Text>{typeDisplay(log)}</Text>
+                    </Box>
+                    <Box>
+                        <Text dimColor>Timestamp: </Text>
+                        <Text>{timestampDisplay(log)}</Text>
+                    </Box>
+                    <Box>
+                        <Text dimColor>Version: </Text>
+                        <Text>{log.rawLog?.version || 'N/A'}</Text>
+                    </Box>
+                    {(log.type === 'assistant' || log.type === 'tool' || log.type === 'thinking') && (
+                        <Box>
+                            <Text dimColor>Model: </Text>
+                            <Text>{log.rawLog?.message?.model || 'N/A'}</Text>
+                        </Box>
+                    )}
+                    {(log.type === 'assistant' || log.type === 'tool' || log.type === 'thinking') && log.usage !== undefined && (
+                        <Box>
+                            <Text dimColor>Usage: </Text>
+                            <Text>{formatUsage(log.usage, log.rawLog)}</Text>
+                        </Box>
+                    )}
+                    {(log.type === 'assistant' || log.type === 'tool' || log.type === 'thinking') && (
+                        <Box>
+                            <Text dimColor>Stop Reason: </Text>
+                            <Text>{log.rawLog?.message?.stop_reason || 'None'}</Text>
+                        </Box>
+                    )}
+                </TitledBox>
+
+                {/* Content */}
+                <TitledBox
+                    flexDirection="column"
+                    titles={["Content"]}
+                    borderColor="gray"
+                    borderStyle="single"
+                    padding={1}
+                    marginTop={1}
+                    height={contentHeight}
+                >
+                    {hasLinesAbove && (
+                        <Box width={width - 8} height={1}>
+                            <Text dimColor>... {scrollOffset} more above ...</Text>
+                        </Box>
+                    )}
+                    {visibleLines.map((line, idx) => (
+                        isJSON ? (
+                            <HighlightedJSON key={idx} line={line} />
+                        ) : (
+                            <Box key={idx}>
+                                <Box width={6}>
+                                    <Text dimColor>[{scrollOffset + idx}]</Text>
+                                </Box>
+                                <Text > {line}</Text>
+                            </Box>
+                        )
+                    ))}
+                    {hasLinesBelow && (
+                        <Box width={width - 8} height={2}>
+                            <Text dimColor>... {totalLines - (scrollOffset + contentHeight)} more below ...</Text>
+                        </Box>
+                    )}
+                </TitledBox>
+
+            </TitledBox>
+
+            {/* Navigation */}
+            <Box justifyContent="center" marginTop={1}>
+                <Text dimColor>Esc: Back | ←/→: Prev/Next Log (offset: {scrollOffset}, lines: {visibleLines.length}, hasLinesAbove: {String(hasLinesAbove)}, hasLinesBelow: {String(hasLinesBelow)})</Text>
             </Box>
-            <Box>
-              <Text dimColor>Session: </Text>
-              <Text>{sessionId || 'N/A'}</Text>
+
+            {/* Debug */}
+            <Box justifyContent="center" marginTop={1}>
+                <Text dimColor>[DEBUG] offset: {scrollOffset}, lines: {visibleLines.length}, hasLinesAbove: {String(hasLinesAbove)}, hasLinesBelow: {String(hasLinesBelow)})</Text>
             </Box>
-            <Box>
-              <Text dimColor>Type: </Text>
-              <Text>{typeDisplay}</Text>
-            </Box>
-            <Box>
-              <Text dimColor>Timestamp: </Text>
-              <Text>{timestampDisplay}</Text>
-            </Box>
-
-            {/* Version (all types) */}
-            <Box>
-              <Text dimColor>Version: </Text>
-              <Text>{rawLog?.version || 'N/A'}</Text>
-            </Box>
-
-            {/* Model (Assistant/Tool/Thinking) */}
-            {(log.type === 'assistant' || log.type === 'tool' || log.type === 'thinking') && (
-              <Box>
-                <Text dimColor>Model: </Text>
-                <Text>{model}</Text>
-              </Box>
-            )}
-
-            {/* Usage (Assistant/Tool/Thinking) */}
-            {(log.type === 'assistant' || log.type === 'tool' || log.type === 'thinking') && log.usage !== undefined && (
-              <Box>
-                <Text dimColor>Usage: </Text>
-                <Text>{formatUsage(log.usage, rawLog)}</Text>
-              </Box>
-            )}
-
-            {/* Stop Reason (Assistant/Tool/Thinking) */}
-            {(log.type === 'assistant' || log.type === 'tool' || log.type === 'thinking') && (
-              <Box>
-                <Text dimColor>Stop Reason: </Text>
-                <Text>{stopReason}</Text>
-              </Box>
-            )}
-          </Box>
-
-          {/* Separator */}
-          <Text dimColor marginTop={1}>─────────────────────</Text>
-
-          {/* Content Section */}
-          <Box flexDirection="column" marginTop={1}>
-            {hasLinesAbove && (
-              <Text dimColor>... {actualOffset} more above ...</Text>
-            )}
-            {visibleLines.map((line, idx) => (
-              isJSON ? (
-                <HighlightedJSON key={idx} line={line} />
-              ) : (
-                <Text key={idx}>{line}</Text>
-              )
-            ))}
-            {hasLinesBelow && (
-              <Text dimColor>... {totalLines - (actualOffset + availableHeight)} more below ...</Text>
-            )}
-          </Box>
         </Box>
-      </Box>
-
-      {/* Help Text */}
-      <Box justifyContent="center" marginTop={1}>
-        <Text dimColor>
-          Esc: Back | ←/→: Prev/Next Log | ↑/↓: Scroll | u: Up 10 | d: Down 10 | t: Top | b: Bottom | Line {actualOffset + 1}-{Math.min(actualOffset + availableHeight, totalLines)}/{totalLines}
-        </Text>
-      </Box>
-    </Box>
-  );
+    );
 }

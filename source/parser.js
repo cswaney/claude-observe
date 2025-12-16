@@ -1,31 +1,14 @@
+import { error } from 'console';
 import fs from 'fs';
 import path from 'path';
+import { cwd } from 'process';
+
 
 /**
- * Parse Claude JSONL log files and convert to UI format
+ * Read logs from JSONL file
+ * @param {string} filePath - Path to session file 
+ * @return {array} Array of raw log entries
  */
-
-// Convert ISO timestamp to HH:MM:SS format
-function formatTimestamp(isoString) {
-	if (!isoString) return '00:00:00';
-	const date = new Date(isoString);
-	const hours = String(date.getHours()).padStart(2, '0');
-	const minutes = String(date.getMinutes()).padStart(2, '0');
-	const seconds = String(date.getSeconds()).padStart(2, '0');
-	return `${hours}:${minutes}:${seconds}`;
-}
-
-// Calculate total tokens from usage object
-function getTotalUsage(usage) {
-	if (!usage) return 0;
-	const input = usage.input_tokens || 0;
-	const output = usage.output_tokens || 0;
-	const cacheRead = usage.cache_read_input_tokens || 0;
-	const cacheCreation = usage.cache_creation_input_tokens || 0;
-	return input + output + cacheRead + cacheCreation;
-}
-
-// Read and parse a JSONL file
 function readJsonl(filePath) {
 	const content = fs.readFileSync(filePath, 'utf-8');
 	const lines = content.split('\n').filter(line => line.trim());
@@ -33,95 +16,172 @@ function readJsonl(filePath) {
 }
 
 /**
- * Parse log entries from a single file
+ * Extract message type based on role and content type
+ * @param {object} log - Raw log object
+ * @return {string} Message type
  */
-export function parseLogFile(filePath) {
-	const entries = readJsonl(filePath);
-	const logs = [];
+function getMessageType(log) {
+	const message = log.message;
 
-	for (const entry of entries) {
-		// Skip summary and file-history-snapshot entries
-		if (entry.type === 'summary' || entry.type === 'file-history-snapshot' || entry.type === 'queue-operation') {
-			continue;
-		}
+	if (!message || !message.content) {
+		return null
+	};
 
-		// Handle user and assistant messages
-		if (entry.type === 'user' || entry.type === 'assistant') {
-			const message = entry.message;
-			if (!message || !message.content) continue;
 
-			// Process each content block
-			for (const content of message.content) {
-				if (content.type === 'text') {
-					logs.push({
-						uuid: entry.uuid,
-						type: entry.type,
-						timestamp: formatTimestamp(entry.timestamp),
-						isoTimestamp: entry.timestamp,
-						content: content.text,
-						collapsed: true,
-						usage: getTotalUsage(message.usage),
-						rawLog: entry, // Preserve full JSONL entry
-					});
-				} else if (content.type === 'thinking') {
-					logs.push({
-						uuid: entry.uuid,
-						type: 'thinking',
-						timestamp: formatTimestamp(entry.timestamp),
-						isoTimestamp: entry.timestamp,
-						content: content.thinking,
-						collapsed: true,
-						usage: getTotalUsage(message.usage),
-						rawLog: entry, // Preserve full JSONL entry
-					});
-				} else if (content.type === 'tool_use') {
-					logs.push({
-						uuid: entry.uuid,
-						type: 'tool',
-						timestamp: formatTimestamp(entry.timestamp),
-						content: `${content.name}`,
-						isoTimestamp: entry.timestamp,
-						collapsed: true,
-						usage: getTotalUsage(message.usage),
-						toolName: content.name,
-						toolInput: content.input,
-						rawLog: entry, // Preserve full JSONL entry
-					});
-				} else if (content.type === 'tool_result') {
-					// Find the matching tool_use to get the tool name
-					let toolName = null;
-					for (const log of logs) {
-						if (log.rawLog?.message?.content) {
-							for (const c of log.rawLog.message.content) {
-								if (c.type === 'tool_use' && c.id === content.tool_use_id) {
-									toolName = c.name;
-									break;
-								}
-							}
-						}
-						if (toolName) break;
-					}
-
-					logs.push({
-						uuid: entry.uuid,
-						type: 'tool',
-						timestamp: formatTimestamp(entry.timestamp),
-						content: toolName ? `${toolName} (result)` : 'Result',
-						isoTimestamp: entry.timestamp,
-						collapsed: true,
-						usage: getTotalUsage(message.usage),
-						toolName: toolName,
-						toolResult: content.content, // Store the result content
-						toolUseId: content.tool_use_id, // Store the tool_use_id for reference
-						isError: content.is_error || false,
-						rawLog: entry, // Preserve full JSONL entry
-					});
-				}
-			}
+	if (message.role === "user") {
+		if (message.toolUseResult) {
+			return "tool_result"
+		} else {
+			return "user"
 		}
 	}
 
-	return logs;
+	if (message.role === "assistant") {
+		for (const content of message.content) {
+			if (content.type === "thinking") {
+				return "thinking"
+			}
+			if (content.type === "tool_use") {
+				return "tool_use"
+			}
+		}
+
+		return "assistant"
+	}
+
+	error(`Encountered an unknown message type while parsing session data (message: {message})`)
+}
+
+/**
+ * Extract message content based on type
+ * @param {object} log - Raw log object
+ * @param {string} type - Parsed log type
+ * @returns {string} Message content
+ */
+function getMessageContent(log, type) {
+	const message = log.message;
+
+	if (!message || !message.content) {
+		return null
+	};
+
+	if (type === "user") {
+		if (typeof message.content === 'string') {
+			return message.content;
+		}
+		return message.content[0]?.text || '';
+	} else if (type === "assistant") {
+		return message.content[0]?.text || '';
+	} else if (type === "thinking") {
+		return message.content[0]?.thinking || '';
+	} else if (type === "tool_use") {
+		const input = message.content[0]?.input;
+		return typeof input === 'object' ? JSON.stringify(input, null, 2) : String(input || '');
+	} else if (type === "tool_result") {
+		const content = message.content[0]?.content;
+		return typeof content === 'object' ? JSON.stringify(content, null, 2) : String(content || '');
+	}
+}
+
+/**
+ * Calculate total token usage 
+ * @param {object} log - Raw log object
+ * @returns {number} Total token usage
+ */
+export function getTotalUsage(log) {
+	const message = log.message;
+
+	if (!message || !message.content) {
+		return null
+	}
+
+	const usage = message.usage;
+
+	if (!usage) return 0;
+	
+	const input = usage.input_tokens || 0;
+	const output = usage.output_tokens || 0;
+	const cacheRead = usage.cache_read_input_tokens || 0;
+	const cacheCreation = usage.cache_creation_input_tokens || 0;
+	
+	return input + output + cacheRead + cacheCreation;
+}
+
+/**
+ * Format ISO timestamp for display
+ * @param {string} timestamp - ISO-formatted timestamp
+ */
+function formatTimestamp(timestamp) {
+	return new Date(timestamp).toLocaleTimeString()
+}
+
+/**
+ * Parse log entries from a single file.
+ * 
+ * The type of each log is based on the message role and content.
+ * @param {string} filePath - Path to session file
+ * @returns {array} Array of parsed log entries. 
+ */
+export function parseLogFile(filePath) {
+
+	const logs = readJsonl(filePath);
+	const parsedLogs = [];
+
+	for (const log of logs) {
+
+		// Not processing summaries
+		if (log.type === 'summary') {
+			continue;
+		}
+
+		// Not processing file history snapshots
+		if (log.type === 'file-history-snapshot') {
+			continue;
+		}
+
+		// Not processing queue opertaions
+		if (log.type === 'queue-operation') {
+			continue;
+		}
+
+		if (!log.message) continue;
+
+		let type = getMessageType(log);
+		let parsed = {
+			uuid: log.uuid,
+			type: type,
+			timestamp: formatTimestamp(log.timestamp),
+			content: getMessageContent(log, type),
+			usage: getTotalUsage(log),
+			collapsed: true,
+			raw: log,
+		};
+
+		if (parsed.type === "user") {
+			if (parsed.raw.todos) {
+				// Handle in log detail view
+			}
+			if (parsed.raw.thinkingMetadata) {
+				// Handle in log detail view
+			}
+		}
+
+		if (parsed.type === "tool_use") {
+			parsed['tool_name'] = parsed.raw.message.content[0].name;
+		}
+
+		if (parsed.type === "tool_result") {
+			const parentUuid = parsed.raw.message.parentUuid;
+			const parentIndex = parsedLogs.findIndex(l => l.uuid === parentUuid);
+			const toolName = parsedLogs[parentIndex].tool_name;
+			parsed['tool_name'] = toolName;
+			parsed['tool_use_result'] = parsed.raw.toolUseResult;
+		}
+
+		parsedLogs.push(parsed);
+	}
+
+	return parsedLogs;
 }
 
 /**
@@ -197,52 +257,30 @@ function parseAgentFile(filePath) {
  * @returns {object} Session metadata (cwd, usage, logCount, created, modified)
  */
 export function getSessionMetadata(filePath) {
+
+	const sessionStats = fs.statSync(filePath);
+	const created = sessionStats.birthtime;
+	const modified = sessionStats.mtime;
+
 	try {
-		const content = fs.readFileSync(filePath, 'utf-8');
-		const lines = content.split('\n').filter(line => line.trim());
+		const logs = readJsonl(filePath);
 
-		if (lines.length === 0) {
-			return { cwd: null, usage: 0, logCount: 0, created: null, modified: null };
-		}
-
-		// Parse all entries to find cwd, calculate usage and log count
 		let cwd = null;
 		let created = null;
 		let totalUsage = 0;
 		let logCount = 0;
 		let lastTimestamp = null;
 
-		for (const line of lines) {
-			const entry = JSON.parse(line);
+		for (const log of logs) {
 
-			// Extract cwd from any entry that has it
-			if (!cwd && entry.cwd) {
-				cwd = entry.cwd;
+			if (!cwd && log.cwd) {
+				cwd = log.cwd;
 			}
 
-			// Track first timestamp as created
-			if (!created && entry.timestamp) {
-				created = entry.timestamp;
-			}
-
-			// Skip non-message entries for counting
-			if (entry.type === 'summary' || entry.type === 'file-history-snapshot' || entry.type === 'queue-operation') {
-				continue;
-			}
-
-			// Count logs and sum usage
-			if (entry.type === 'user' || entry.type === 'assistant') {
-				const message = entry.message;
-				if (message && message.content) {
-					// Count content blocks as logs
-					logCount += message.content.length;
-					totalUsage += getTotalUsage(message.usage);
-				}
-			}
-
-			// Track last timestamp
-			if (entry.timestamp) {
-				lastTimestamp = entry.timestamp;
+			if (log.type === 'user' || log.type === 'assistant') {
+				logCount += 1;
+				totalUsage += getTotalUsage(log);
+				const message = log.message;
 			}
 		}
 
@@ -251,7 +289,7 @@ export function getSessionMetadata(filePath) {
 			usage: totalUsage,
 			logCount,
 			created,
-			modified: lastTimestamp
+			modified,
 		};
 	} catch (e) {
 		return { cwd: null, usage: 0, logCount: 0, created: null, modified: null };

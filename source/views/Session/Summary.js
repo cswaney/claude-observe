@@ -2,15 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { TitledBox } from '@mishieck/ink-titled-box';
 
-// Format token counts with k/M suffixes
-function formatTokens(count) {
-	if (count >= 1000000) {
-		return (count / 1000000).toFixed(1) + 'M';
-	} else if (count >= 1000) {
-		return (count / 1000).toFixed(1) + 'k';
-	}
-	return count.toString();
-}
+import { formatTokens } from '../../utils';
 
 function TokenDistribution({ data, totalUsage, maxWidth }) {
 
@@ -155,10 +147,9 @@ function ActivityChart({ activityByType, activityStats, timeLabels }) {
 }
 
 export default function Summary({ width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null, sessionMetadata = null }) {
-	// Calculate statistics from logs
+	
 	const totalUsage = logs.reduce((sum, log) => sum + (log.usage || 0), 0);
 
-	// Calculate token distribution by type
 	const tokensByType = {
 		user: 0,
 		assistant: 0,
@@ -173,7 +164,7 @@ export default function Summary({ width = 80, logs = [], project = 'Unknown Proj
 			tokensByType.user += usage;
 		} else if (log.type === 'assistant') {
 			tokensByType.assistant += usage;
-		} else if (log.type === 'tool') {
+		} else if (log.type === 'tool_use' || log.type === 'tool_result') {
 			tokensByType.tool += usage;
 		} else if (log.type === 'thinking') {
 			tokensByType.thinking += usage;
@@ -182,17 +173,13 @@ export default function Summary({ width = 80, logs = [], project = 'Unknown Proj
 		}
 	});
 
-	// Prepare data for chart visualization (matching AGENT_COLORS from Logs.js)
 	const chartData = [
 		{ label: 'Assistant', value: tokensByType.assistant, color: '#2ecc71' },
 		{ label: 'Tool', value: tokensByType.tool, color: '#3498db' },
 		{ label: 'Thinking', value: tokensByType.thinking, color: '#9b59b6' },
-		{ label: 'Agents', value: tokensByType.subagent, color: 'red' },
+		{ label: 'Agents', value: tokensByType.subagent, color: '#e74c3c' },
 	];
 
-	// Calculate available width for TokenDistribution box
-	// Total width minus Info box width
-	const tokenDistributionWidth = width - 72 - 2;
 
 	// Calculate duration (elapsed time between first and last timestamp)
 	const timestamps = logs.map(log => log.timestamp).filter(Boolean);
@@ -431,7 +418,7 @@ export default function Summary({ width = 80, logs = [], project = 'Unknown Proj
 				<TokenDistribution
 					data={chartData}
 					totalUsage={totalUsage}
-					maxWidth={tokenDistributionWidth}
+					maxWidth={width - 72 - 2}
 				/>
 			</Box>
 

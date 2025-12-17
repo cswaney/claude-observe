@@ -146,6 +146,37 @@ function ActivityChart({ activityByType, activityStats, timeLabels }) {
 	</TitledBox>
 }
 
+function histogram(logs, categories, width) {
+	if (!logs || logs.length === 0) {
+		return {};
+	}
+
+	const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+	const startTime = new Date(sortedLogs[0].raw.timestamp);
+	const endTime = new Date(sortedLogs[sortedLogs.length - 1].raw.timestamp);
+	const duration = endTime - startTime;
+	const binSize = duration / width;
+	const hist = {};
+	
+	categories.forEach(category => {
+		hist[category] = Array(width).fill(0);
+	});
+
+	sortedLogs.forEach(log => {
+		if (!categories.includes(log.type)) {
+			return;
+		}
+		const timeSinceStart = new Date(log.raw.timestamp) - startTime;
+		let binIndex = Math.floor(timeSinceStart / binSize);
+		if (binIndex >= width) {
+			binIndex = width - 1;
+		}
+		hist[log.type][binIndex] += (log.usage || 0);
+	});
+
+	return hist;
+}
+
 export default function Summary({ width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null, sessionMetadata = null }) {
 	
 	const totalUsage = logs.reduce((sum, log) => sum + (log.usage || 0), 0);
@@ -301,7 +332,7 @@ export default function Summary({ width = 80, logs = [], project = 'Unknown Proj
 				// This compresses high values and expands low values
 				let charIndex;
 				if (tokens === 0) {
-					charIndex = 0; // Use ▁ for zero
+					charIndex = 0;
 				} else {
 					const intensity = Math.log(tokens + 1) / Math.log(maxTokens + 1);
 					charIndex = Math.min(Math.floor(intensity * blockChars.length), blockChars.length - 1);

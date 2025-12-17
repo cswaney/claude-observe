@@ -411,3 +411,67 @@
 └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ←: Back to list | ↑/↓: Scroll | u: Up 10 | d: Down 10 | t: Top | b: Bottom | Line 1-1/1
 ```
+
+```shell
+      ┌────────────────────────────────────────────────┐
+xxxxx │      ▃▅▃▅▃                                     │
+      │   ▃▅▇█████▅▂                                   │
+xxxxx │▃▄▆███████████▅▆▄                               │
+      └────────────────────────────────────────────────┘
+      xxxxxx--------xxxxxx--------xxxxxx--------xxxxxx--
+```
+
+```python
+class Chart:
+  def __init__(
+    data: list[Tuple(float, float)],
+    width: int,
+    height: int,
+    ylabels: list[Tuple(int, str)],
+    xlabels: list[Tuple(int, str)]
+  ):
+    self.data = data # list[]
+    self.ylabels = ylabels # list[(int, str)]
+    self.xlabels = xlabels # list[(int, str)]
+  
+  def render(self) -> str:
+    chart = ""
+    for row_index in range(self.height):
+      chart += Row(row_index, chart).render()
+
+    return chart
+
+
+class Row:
+    
+    bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
+    nbars = len(bars)
+
+    def __init__(self, index: int, ylabel: str, data: list[int]):
+        self.index = index
+        self.label = label
+        self.data = data
+
+    @property
+    def min_y(self):
+        return self.index * nbars
+
+    @property
+    def max_y(self):
+        return (self.index + 1) * nbars
+
+    def render(self) -> str:
+        row = ""
+        if self.ylabel:
+            row += self.render_ylabel()
+        else:
+            row += " " * 4
+        row += " │ "
+        for (value, index) in enumerate(self.chart.data):
+            if value >= self.max_y:
+                row += bars[end]
+            elif value > self.min_y:
+                row += bars[value % nbars]
+            else:
+                row += " "
+```

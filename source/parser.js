@@ -127,8 +127,8 @@ export function getTotalUsage(log) {
  *     content: string | Object;
  *     usage: Number;
  *     collapsed: Boolean,
- *     tool_name: string,
- *     tool_use_result: string | Object,
+ *     toolName: string,
+ *     toolUseResult: string | Object,
  *     raw: Object,
  * }
  *
@@ -184,12 +184,12 @@ export function loadSessionLogs(sessionPath) {
 			const parentIndex = parsedLogs.findIndex(l => l.uuid === parentUuid);
 			if (parentIndex >= 0) {
 				const toolName = parsedLogs[parentIndex].tool_name;
-				parsed['tool_name'] = toolName;
+				parsed['toolName'] = toolName;
 			} else {
 				// Parent tool_use not found, use a placeholder
-				parsed['tool_name'] = 'unknown';
+				parsed['toolName'] = 'unknown';
 			}
-			parsed['tool_use_result'] = parsed.raw.toolUseResult;
+			parsed['toolUseResult'] = parsed.raw.toolUseResult;
 		}
 
 		parsedLogs.push(parsed);

@@ -1,6 +1,6 @@
-import React, {useState, useEffect} from 'react';
-import {Box, Text, useInput} from 'ink';
-import {TitledBox} from '@mishieck/ink-titled-box';
+import React, { useState, useEffect } from 'react';
+import { Box, Text, useInput } from 'ink';
+import { TitledBox } from '@mishieck/ink-titled-box';
 
 function typeDisplay(log) {
 	if (log.type === 'tool' && log.toolName) {
@@ -54,18 +54,18 @@ function formatTokens(count) {
 	return count.toString();
 }
 
-function HighlightedJSON({line}) {
+function HighlightedJSON({ line }) {
 	// Parse the line to identify JSON syntax elements
 	const tokens = [];
 	let currentIndex = 0;
 
 	// Regex patterns for different JSON elements
 	const patterns = [
-		{regex: /"([^"\\]|\\.)*"\s*:/, type: 'key'}, // JSON keys
-		{regex: /"([^"\\]|\\.)*"/, type: 'string'}, // String values
-		{regex: /\b(true|false|null)\b/, type: 'keyword'}, // Keywords
-		{regex: /-?\d+\.?\d*/, type: 'number'}, // Numbers
-		{regex: /[{}\[\],:]/, type: 'punctuation'}, // Punctuation
+		{ regex: /"([^"\\]|\\.)*"\s*:/, type: 'key' }, // JSON keys
+		{ regex: /"([^"\\]|\\.)*"/, type: 'string' }, // String values
+		{ regex: /\b(true|false|null)\b/, type: 'keyword' }, // Keywords
+		{ regex: /-?\d+\.?\d*/, type: 'number' }, // Numbers
+		{ regex: /[{}\[\],:]/, type: 'punctuation' }, // Punctuation
 	];
 
 	while (currentIndex < line.length) {
@@ -77,7 +77,7 @@ function HighlightedJSON({line}) {
 
 			if (match) {
 				const text = match[0];
-				tokens.push({text, type: pattern.type});
+				tokens.push({ text, type: pattern.type });
 				currentIndex += text.length;
 				matched = true;
 				break;
@@ -86,7 +86,7 @@ function HighlightedJSON({line}) {
 
 		if (!matched) {
 			// No pattern matched, add as plain text
-			tokens.push({text: line[currentIndex], type: 'plain'});
+			tokens.push({ text: line[currentIndex], type: 'plain' });
 			currentIndex++;
 		}
 	}
@@ -133,21 +133,23 @@ function HighlightedJSON({line}) {
 	);
 }
 
-export default function Details({log, width, contentHeight = 30}) {
+export default function Details({ log, width, contentHeight = 30 }) {
 	const [scrollOffset, setScrollOffset] = useState(0);
 
 	let contentLines = [];
 	let isJSON = false;
 
-	if (log.type === 'tool') {
+	if (log.type === 'tool_use') {
 		if (log.toolInput) {
 			contentLines = JSON.stringify(log.toolInput, null, 2).split('\n');
 			isJSON = true;
-		} else if (log.toolResult) {
-			if (typeof log.toolResult === 'string') {
-				contentLines = log.toolResult.split('\n');
+		}
+	} else if (log.type === "tool_result") {
+		if (log.toolUseResult) {
+			if (typeof log.toolUseResult === 'string') {
+				contentLines = log.toolUseResult.split('\n');
 			} else {
-				contentLines = JSON.stringify(log.toolResult, null, 2).split('\n');
+				contentLines = JSON.stringify(log.toolUseResult, null, 2).split('\n');
 				isJSON = true;
 			}
 		}
@@ -227,11 +229,11 @@ export default function Details({log, width, contentHeight = 30}) {
 					{(log.type === 'assistant' ||
 						log.type === 'tool' ||
 						log.type === 'thinking') && (
-						<Box>
-							<Text dimColor>Model: </Text>
-							<Text>{log.rawLog?.message?.model || 'N/A'}</Text>
-						</Box>
-					)}
+							<Box>
+								<Text dimColor>Model: </Text>
+								<Text>{log.rawLog?.message?.model || 'N/A'}</Text>
+							</Box>
+						)}
 					{(log.type === 'assistant' ||
 						log.type === 'tool' ||
 						log.type === 'thinking') &&
@@ -244,11 +246,11 @@ export default function Details({log, width, contentHeight = 30}) {
 					{(log.type === 'assistant' ||
 						log.type === 'tool' ||
 						log.type === 'thinking') && (
-						<Box>
-							<Text dimColor>Stop Reason: </Text>
-							<Text>{log.rawLog?.message?.stop_reason || 'None'}</Text>
-						</Box>
-					)}
+							<Box>
+								<Text dimColor>Stop Reason: </Text>
+								<Text>{log.rawLog?.message?.stop_reason || 'None'}</Text>
+							</Box>
+						)}
 				</TitledBox>
 
 				{/* Content */}

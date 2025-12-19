@@ -43,6 +43,16 @@ export default function LogsList({
 
 		const logContent = getLogContent(log);
 
+		// Determine row color based on log type (matching summary charts)
+		const getRowColor = (log) => {
+			if (log.type === 'assistant') return '#2ecc71'; // green
+			if (log.type === 'tool' || log.type === 'tool_use' || log.type === 'tool_result') return TOOL_COLOR;
+			if (log.type === 'thinking') return THINKING_COLOR;
+			return null; // user and other types have no color
+		};
+
+		const rowColor = getRowColor(log);
+
 		// Update active agents tracking
 		if (log.type === 'subagent' && !log.isLast) {
 			if (!agentColorMap.has(log.agentId)) {
@@ -135,7 +145,7 @@ export default function LogsList({
 
 			return (
 				<Box>
-					<Text bold={isSelected} color={agentData.color} wrap="truncate">
+					<Text bold={isSelected} color={agentData.color}>
 						<Text bold={isSelected} dimColor={!isSelected}>
 							{timestamp}
 						</Text>
@@ -170,7 +180,7 @@ export default function LogsList({
 				<Box key={log.id} flexDirection="column">
 					{/* Subagent start arrow row */}
 					<Box>
-						<Text bold={isSelected} color={agent?.color} wrap="truncate">
+						<Text bold={isSelected} color={agent?.color}>
 							<Text bold={isSelected} dimColor={!isSelected}>
 								[{formattedTime}]
 							</Text>{' '}
@@ -183,7 +193,7 @@ export default function LogsList({
 					{/* Content Row (if expanded) */}
 					{!isCollapsed && logContent && (
 						<Box>
-							<Text dimColor wrap="truncate"> "{logContent}"</Text>
+							<Text dimColor color={agent?.color}> "{logContent}"</Text>
 							{renderVerticalBarsSuffix(
 								4 + 1 + logContent.length + 1,
 								`${log.id}-start-content`,
@@ -195,16 +205,8 @@ export default function LogsList({
 		}
 
 		// Regular log entries (user, assistant, tool, thinking)
-		// Add emojis for special types
 		let displayTitle = log.type;
-		let displayColor = 'white';
-		if (log.type === 'tool') {
-			displayTitle = 'tool';
-			displayColor = TOOL_COLOR;
-		} else if (log.type === 'thinking') {
-			displayTitle = 'thinking';
-			displayColor = THINKING_COLOR;
-		}
+		let displayColor = rowColor || 'white';
 
 		let selectIconBefore = '> ';
 		let selectIconAfter = '⌄ ';
@@ -239,13 +241,13 @@ export default function LogsList({
 			<Box key={log.id} flexDirection="column">
 				{/* Title Row */}
 				<Box>
-					<Text bold={isSelected} wrap="truncate">
+					<Text bold={isSelected} color={displayColor}>
 						<Text dimColor={!isSelected}>[{formattedTime}] </Text>
 						<Text dimColor={!isSelected}>
 							{hasExpandableContent ? (isCollapsed ? selectIconBefore : selectIconAfter) : '  '}
 						</Text>
-						<Text color={displayColor}>{displayTitle}{hasExpandableContent ? ':' : ''}</Text>
-						<Text dimColor={!isSelected}>{previewText}</Text>
+						<Text>{displayTitle}{hasExpandableContent ? ':' : ''}</Text>
+						<Text wrap="truncate-end" dimColor={!isSelected}>{previewText}</Text>
 					</Text>
 					{renderVerticalBarsSuffix(
 						2 +
@@ -276,7 +278,7 @@ export default function LogsList({
 											: line;
 									return (
 										<Box key={`${log.id}-content-${idx}`}>
-											<Text dimColor wrap="truncate">
+											<Text dimColor wrap="truncate" color={displayColor}>
 												{contentIndent}
 												{displayLine}
 											</Text>
@@ -290,7 +292,7 @@ export default function LogsList({
 								.concat(
 									hasMore ? (
 										<Box key={`${log.id}-more`}>
-											<Text dimColor>{contentIndent}...</Text>
+											<Text dimColor color={displayColor}>{contentIndent}...</Text>
 											{renderVerticalBarsSuffix(
 												contentIndent.length + 3,
 												`${log.id}-more`,

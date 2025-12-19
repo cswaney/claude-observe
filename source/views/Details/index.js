@@ -194,7 +194,7 @@ export default function Details({log, width, contentHeight = 30}) {
 				borderStyle="single"
 				borderColor="gray"
 				padding={1}
-				titles={[`Log: ${log.uuid || log.id}`]}
+				titles={[`Log: ${log.uuid}`]}
 			>
 				{/* Metadata */}
 				<TitledBox

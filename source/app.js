@@ -115,6 +115,7 @@ export default function App({sessionPath = null}) {
 									: new Date(),
 							};
 						})
+                        .filter(project => project.logCount > 0)
 						.sort((a, b) => b.mtime - a.mtime);
 
 					const lastModified =

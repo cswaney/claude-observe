@@ -105,8 +105,6 @@ export default function Browser({
 								const created = item.birthtime ? new Date(item.birthtime).toLocaleDateString() : 'N/A';
 								const modified = item.mtime ? new Date(item.mtime).toLocaleDateString() : 'N/A';
 								const logCount = formatLogs(item.logCount || 0);
-
-								// Color: blue for same project, dimmed for others
 								const textColor = isSameProject ? '#3498db' : undefined;
 
 								return (
@@ -115,21 +113,21 @@ export default function Browser({
 											<Text color="#3498db">{isSelected ? '•' : ''}</Text>
 										</Box>
 										<Box width={44} justifyContent="flex-start" marginRight={3}>
-											<Text wrap="truncate-middle" bold={isSelected} dimColor={!isSameProject && !isSelected} color={textColor}>
+											<Text wrap="truncate-middle" bold={isSelected} dimColor={!isSameProject || !isSelected} color={textColor}>
 												{item.project || item.projectName}
 											</Text>
 										</Box>
 										<Box width={44} justifyContent="flex-start" overflowX="hidden">
-											<Text bold={isSelected} dimColor={!isSameProject && !isSelected} color={textColor}>{item.session || item.name}</Text>
+											<Text bold={isSelected} dimColor={!isSameProject || !isSelected} color={textColor}>{item.session || item.name}</Text>
 										</Box>
 										<Box width={12} justifyContent="flex-end">
-											<Text bold={isSelected} dimColor={!isSameProject && !isSelected} color={textColor}>{logCount}</Text>
+											<Text bold={isSelected} dimColor={!isSameProject || !isSelected} color={textColor}>{logCount}</Text>
 										</Box>
 										<Box width={14} justifyContent="flex-end">
-											<Text bold={isSelected} dimColor={!isSameProject && !isSelected} color={textColor}>{created}</Text>
+											<Text bold={isSelected} dimColor={!isSameProject || !isSelected} color={textColor}>{created}</Text>
 										</Box>
 										<Box width={14} justifyContent="flex-end">
-											<Text bold={isSelected} dimColor={!isSameProject && !isSelected} color={textColor}>{modified}</Text>
+											<Text bold={isSelected} dimColor={!isSameProject || !isSelected} color={textColor}>{modified}</Text>
 										</Box>
 										<Box width={1}><Text></Text></Box>
 									</Box>

@@ -23,7 +23,6 @@ export default function LogsList({
 	filteredLogs = [],
 	startIndex = null,
 	endIndex = null,
-	height = null,
 }) {
 	// Track active agents and assign colors
 	const activeAgents = new Map(); // agentId -> { pos, color }
@@ -301,7 +300,6 @@ export default function LogsList({
 			// marginTop={1}
 			key={listViewKey}
 			titles={['Logs']}
-			height={height}
 		>
 			<Box flexDirection="column">
 				{hasLogsAbove && (

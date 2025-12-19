@@ -1,6 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
+import {useScrollableList} from '../../hooks/useScrollableList.js';
 import Summary from './Summary.js';
 import LogsList from './LogsList.js';
 
@@ -43,85 +44,25 @@ export default function Session({
 		return 1 + displayedLines + (hasMore ? 1 : 0);
 	};
 
-	// Calculate visible window of logs to render based on available height
-	// Strategy: Position selected log's first line at floor(availableLines / 2)
+	// Calculate visible window of logs using the scrollable list hook
 	const TITLED_BOX_BORDERS = 2; // Top and bottom borders
 	const TITLED_BOX_PADDING = 2; // Top and bottom padding
 	const BUFFER_LINES = 2; // Extra buffer to ensure logs render properly
 	const availableLines = logsListHeight - TITLED_BOX_BORDERS - TITLED_BOX_PADDING + BUFFER_LINES;
-	const targetLineForSelected = Math.floor(availableLines / 2);
 
-	let startIndex = 0;
-	let endIndex = 0;
-
-	// Count how many lines we could fill above the selected log
-	let linesAbove = 0;
-	let tempIndex = selectedIndex;
-	while (tempIndex > 0) {
-		const logHeight = getLogHeight(filteredLogs[tempIndex - 1]);
-		linesAbove += logHeight;
-		tempIndex--;
-	}
-
-	// Decide viewport strategy based on content above selected log
-	if (linesAbove < targetLineForSelected) {
-		// Near the top - not enough content above to center
-		// Start from beginning and fill entire viewport
-		startIndex = 0;
-	} else {
-		// Enough content above - try to center the selected log
-		// Fill backward from selected log to get close to targetLineForSelected
-		linesAbove = 0;
-		startIndex = selectedIndex;
-		while (startIndex > 0) {
-			const logHeight = getLogHeight(filteredLogs[startIndex - 1]);
-			const wouldBe = linesAbove + logHeight;
-
-			// If adding this log would exceed target, decide whether to include it
-			if (wouldBe > targetLineForSelected) {
-				// Include it if we're currently further from target than we would be with it
-				const distanceWithout = targetLineForSelected - linesAbove;
-				const distanceWith = wouldBe - targetLineForSelected;
-				if (distanceWith < distanceWithout) {
-					linesAbove = wouldBe;
-					startIndex--;
-				}
-				break;
-			}
-
-			linesAbove += logHeight;
-			startIndex--;
-		}
-	}
-
-	// Now fill forward from startIndex until we run out of space
-	// Always include the selected log, and stop after we've filled availableLines
-	let totalLines = 0;
-	endIndex = startIndex;
-	while (endIndex < filteredLogs.length) {
-		const logHeight = getLogHeight(filteredLogs[endIndex]);
-		const isSelected = endIndex === selectedIndex;
-
-		// Check if adding this log would exceed available space
-		if (totalLines + logHeight > availableLines) {
-			// Always include the selected log even if it exceeds space
-			if (isSelected) {
-				totalLines += logHeight;
-				endIndex++;
-			}
-			// Stop - we've filled the viewport
-			break;
-		}
-
-		totalLines += logHeight;
-		endIndex++;
-	}
-
-	const visibleLogs = filteredLogs.slice(startIndex, endIndex);
-
-	// Show indicators when there are more logs above/below
-	const hasLogsAbove = startIndex > 0;
-	const hasLogsBelow = endIndex < filteredLogs.length;
+	const {
+		visibleItems: visibleLogs,
+		startIndex,
+		endIndex,
+		hasItemsAbove: hasLogsAbove,
+		hasItemsBelow: hasLogsBelow,
+	} = useScrollableList({
+		items: filteredLogs,
+		selectedIndex,
+		height: availableLines,
+		getItemHeight: getLogHeight,
+		centerSelected: true,
+	});
 
 	// Generate filter status text
 	const activeFilterNames = Object.entries(activeFilters)
@@ -162,7 +103,6 @@ export default function Session({
 					filteredLogs={filteredLogs}
 					startIndex={startIndex}
 					endIndex={endIndex}
-					height={logsListHeight}
 				/>
 			</TitledBox>
 

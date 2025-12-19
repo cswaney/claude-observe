@@ -319,8 +319,8 @@ export function loadSessionMetadata(sessionPath) {
 		let tokenUsage = 0;
 
 		for (const log of logs) {
-			if (!project && log.project) {
-				project = log.project;
+			if (!project && log.cwd) {
+				project = log.cwd;
 			}
 			if (log.type === 'user' || log.type === 'assistant') {
 				logCount += 1;
@@ -329,6 +329,7 @@ export function loadSessionMetadata(sessionPath) {
 		}
 
 		return {
+			project,
 			created,
 			modified,
 			logCount,
@@ -336,6 +337,7 @@ export function loadSessionMetadata(sessionPath) {
 		};
 	} catch (e) {
 		return {
+			project: null,
 			created: null,
 			modified: null,
 			usage: 0,

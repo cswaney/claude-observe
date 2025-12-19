@@ -79,8 +79,8 @@ export default function App({sessionPath = null}) {
 				.map(dirent => dirent.name);
 
 			const projectsData = projectDirs
-				.map(projectName => {
-					const projectPath = path.join(claudeDir, projectName);
+				.map(projectDir => {
+					const projectPath = path.join(claudeDir, projectDir);
 					const projectStats = fs.statSync(projectPath);
 
 					const sessionFiles = fs
@@ -89,16 +89,6 @@ export default function App({sessionPath = null}) {
 							file => file.endsWith('.jsonl') && !file.startsWith('agent-'),
 						);
 
-					let projectCwd = projectName;
-					for (const file of sessionFiles) {
-						const filePath = path.join(projectPath, file);
-						const metadata = loadSessionMetadata(filePath);
-						if (metadata.cwd) {
-							projectCwd = metadata.cwd;
-							break;
-						}
-					}
-
 					const sessions = sessionFiles
 						.map(file => {
 							const filePath = path.join(projectPath, file);
@@ -106,7 +96,7 @@ export default function App({sessionPath = null}) {
 
 							return {
 								session: path.parse(file).name,
-								project: projectCwd,
+								project: metadata.project,
 								usage: metadata.usage,
 								logCount: metadata.logCount,
 								created: metadata.created ? new Date(metadata.created) : null,
@@ -116,7 +106,7 @@ export default function App({sessionPath = null}) {
 								// Keep legacy fields for compatibility
 								name: file,
 								path: filePath,
-								projectName,
+								projectName: projectDir,
 								mtime: metadata.modified
 									? new Date(metadata.modified)
 									: new Date(),
@@ -129,6 +119,9 @@ export default function App({sessionPath = null}) {
 
 					const lastModified =
 						sessions.length > 0 ? sessions[0].mtime : projectStats.mtime;
+
+                    const projectName = 
+                        sessions.length > 0 ? sessions[0].project : projectDir;
 
 					return {
 						name: projectName,

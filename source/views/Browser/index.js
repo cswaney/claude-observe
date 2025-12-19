@@ -1,8 +1,9 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout } from 'ink';
 import Gradient from 'ink-gradient';
 import BigText from 'ink-big-text';
 import { TitledBox } from '@mishieck/ink-titled-box';
+import { useScrollableList } from '../../hooks/useScrollableList.js';
 
 const version = process.env.PACKAGE_VERSION || '0.0.0';
 
@@ -23,6 +24,31 @@ export default function Browser({
 	filterInput = '',
 	filterQuery = ''
 }) {
+	const { stdout } = useStdout();
+	const terminalHeight = stdout?.rows || 40;
+
+	// Calculate available height for session list
+	// Header (BigText + version) ≈ 10 lines
+	// Filter/help text ≈ 4 lines
+	// TitledBox padding/borders ≈ 4 lines
+	// Table header + divider ≈ 2 lines
+	const headerOverhead = 20;
+	const availableHeight = 15; // Math.max(10, terminalHeight - headerOverhead);
+
+	// Use scrollable list hook
+	const {
+		visibleItems: visibleSessions,
+		startIndex,
+		rowsAbove,
+		rowsBelow,
+		hasItemsAbove,
+		hasItemsBelow,
+	} = useScrollableList({
+		items: sessions,
+		selectedIndex,
+		height: availableHeight,
+		centerSelected: true,
+	});
 	return (
 		<Box flexDirection="column" width={width}>
 			<Box flexDirection="column">
@@ -39,12 +65,14 @@ export default function Browser({
 					borderStyle="single"
 					borderColor="gray"
 					padding={1}
+					paddingBottom={0}
 					titles={['Sessions']}
 				>
 					{sessions.length === 0 ? (
 						<Text dimColor>No sessions found in ~/.claude/projects</Text>
 					) : (
 						<Box flexDirection="column">
+							{/* Table header */}
 							<Box>
 								<Box width={1}><Text></Text></Box>
 								<Box width={44} marginRight={3} justifyContent="flex-start"><Text dimColor bold>Project</Text></Box>
@@ -60,15 +88,23 @@ export default function Browser({
 								<Text dimColor>{'─'.repeat(width - 6)}</Text>
 							</Box>
 
-							{sessions.map((item, index) => {
-								const isSelected = index === selectedIndex;
+							{/* Overflow indicator - items above */}
+							{hasItemsAbove && (
+								<Box justifyContent="center">
+									<Text dimColor>... {rowsAbove} {rowsAbove === 1 ? 'session' : 'sessions'} above</Text>
+								</Box>
+							)}
+
+							{/* Visible sessions */}
+							{visibleSessions.map((item, relativeIndex) => {
+								const absoluteIndex = startIndex + relativeIndex;
+								const isSelected = absoluteIndex === selectedIndex;
 								const selectedProject = sessions[selectedIndex]?.project || sessions[selectedIndex]?.projectName;
 								const itemProject = item.project || item.projectName;
 								const isSameProject = itemProject === selectedProject;
 								const created = item.birthtime ? new Date(item.birthtime).toLocaleDateString() : 'N/A';
 								const modified = item.mtime ? new Date(item.mtime).toLocaleDateString() : 'N/A';
 								const logCount = formatLogs(item.logCount || 0);
-								const tokens = item.usage ? (item.usage / 1000).toFixed(0) + 'k' : '0';
 
 								// Color: blue for same project, dimmed for others
 								const textColor = isSameProject ? '#3498db' : undefined;
@@ -99,6 +135,13 @@ export default function Browser({
 									</Box>
 								);
 							})}
+
+							{/* Overflow indicator - items below */}
+							{hasItemsBelow && (
+								<Box justifyContent="center">
+									<Text dimColor>... {rowsBelow} {rowsBelow === 1 ? 'session' : 'sessions'} below</Text>
+								</Box>
+							)}
 						</Box>
 					)}
 				</TitledBox>

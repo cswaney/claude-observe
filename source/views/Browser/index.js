@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import Gradient from 'ink-gradient';
 import BigText from 'ink-big-text';
 import { TitledBox } from '@mishieck/ink-titled-box';
+import { useScrollableList } from '../../hooks/useScrollableList.js';
 
 const version = process.env.PACKAGE_VERSION || '0.0.0';
 
@@ -24,60 +25,26 @@ export default function Browser({
 	filterQuery = '',
 	browserHeight = 15
 }) {
-	// Calculate visible window of sessions to render based on available height
-	// Try to keep the selected session centered in the viewport
+	// Calculate available height for session list viewport
 	const TITLED_BOX_BORDERS = 2; // Top and bottom borders
 	const TITLED_BOX_PADDING = 2; // Top and bottom padding
 	const TABLE_HEADER_ROWS = 2; // Column titles + separator line
 	const availableLines = browserHeight - TITLED_BOX_BORDERS - TITLED_BOX_PADDING - TABLE_HEADER_ROWS;
-	const targetCenterLines = Math.floor(availableLines / 2);
 
-	let startIndex = 0;
-	let endIndex = 0;
-
-	// Each session item takes 1 line
-	const sessionItemHeight = 1;
-
-	// Count total lines above selected session
-	const linesAboveSelected = selectedIndex * sessionItemHeight;
-
-	// Count total lines below selected session
-	const linesBelowSelected = (sessions.length - selectedIndex - 1) * sessionItemHeight;
-
-	// Determine where to start the viewport
-	if (linesAboveSelected < targetCenterLines) {
-		// Near the top - not enough content above to center, so start from beginning
-		startIndex = 0;
-	} else if (linesBelowSelected < targetCenterLines) {
-		// Near the bottom - not enough content below to center, so work backward from end
-		// Fill backward until we run out of space or sessions
-		let lines = 0;
-		let idx = sessions.length;
-		while (idx > 0 && lines < availableLines) {
-			if (lines + sessionItemHeight > availableLines) break;
-			lines += sessionItemHeight;
-			idx--;
-		}
-		startIndex = idx;
-	} else {
-		// Enough content on both sides - center the selected session
-		startIndex = selectedIndex - targetCenterLines;
-	}
-
-	// Fill viewport forward from startIndex
-	let lines = 0;
-	endIndex = startIndex;
-	while (endIndex < sessions.length && lines < availableLines) {
-		if (lines + sessionItemHeight > availableLines) break;
-		lines += sessionItemHeight;
-		endIndex++;
-	}
-
-	const visibleSessions = sessions.slice(startIndex, endIndex);
-
-	// Show indicators when there are more sessions above/below
-	const hasSessionsAbove = startIndex > 0;
-	const hasSessionsBelow = endIndex < sessions.length;
+	// Use scrollable list hook for viewport calculation
+	const {
+		visibleItems: visibleSessions,
+		startIndex,
+		rowsAbove,
+		rowsBelow,
+		hasItemsAbove: hasSessionsAbove,
+		hasItemsBelow: hasSessionsBelow,
+	} = useScrollableList({
+		items: sessions,
+		selectedIndex,
+		height: availableLines,
+		centerSelected: true,
+	});
 
 	return (
 		<Box flexDirection="column" width={width}>
@@ -95,6 +62,7 @@ export default function Browser({
 					borderStyle="single"
 					borderColor="gray"
 					padding={1}
+					paddingBottom={0}
 					titles={['Sessions']}
 					height={browserHeight}
 				>
@@ -120,7 +88,7 @@ export default function Browser({
 							{hasSessionsAbove && (
 								<Box>
 									<Text dimColor>
-										{' '.repeat(1)}... {startIndex} more above ...
+										{' '.repeat(1)}... {rowsAbove} more above ...
 									</Text>
 								</Box>
 							)}
@@ -169,7 +137,7 @@ export default function Browser({
 							{hasSessionsBelow && (
 								<Box>
 									<Text dimColor>
-										{' '.repeat(1)}... {sessions.length - endIndex} more below ...
+										{' '.repeat(1)}... {rowsBelow} more below ...
 									</Text>
 								</Box>
 							)}

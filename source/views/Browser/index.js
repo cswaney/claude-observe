@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout } from 'ink';
 import Gradient from 'ink-gradient';
 import BigText from 'ink-big-text';
 import { TitledBox } from '@mishieck/ink-titled-box';
@@ -22,27 +22,31 @@ export default function Browser({
 	selectedIndex = 0,
 	filterMode = false,
 	filterInput = '',
-	filterQuery = '',
-	browserHeight = 15
+	filterQuery = ''
 }) {
-	// Calculate available height for session list viewport
-	const TITLED_BOX_BORDERS = 2; // Top and bottom borders
-	const TITLED_BOX_PADDING = 2; // Top and bottom padding
-	const TABLE_HEADER_ROWS = 2; // Column titles + separator line
-	const availableLines = browserHeight - TITLED_BOX_BORDERS - TITLED_BOX_PADDING - TABLE_HEADER_ROWS;
+	const { stdout } = useStdout();
+	const terminalHeight = stdout?.rows || 40;
 
-	// Use scrollable list hook for viewport calculation
+	// Calculate available height for session list
+	// Header (BigText + version) ≈ 10 lines
+	// Filter/help text ≈ 4 lines
+	// TitledBox padding/borders ≈ 4 lines
+	// Table header + divider ≈ 2 lines
+	const headerOverhead = 20;
+	const availableHeight = 15; // Math.max(10, terminalHeight - headerOverhead);
+
+	// Use scrollable list hook
 	const {
 		visibleItems: visibleSessions,
 		startIndex,
 		rowsAbove,
 		rowsBelow,
-		hasItemsAbove: hasSessionsAbove,
-		hasItemsBelow: hasSessionsBelow,
+		hasItemsAbove,
+		hasItemsBelow,
 	} = useScrollableList({
 		items: sessions,
 		selectedIndex,
-		height: availableLines,
+		height: availableHeight,
 		centerSelected: true,
 	});
 
@@ -64,7 +68,6 @@ export default function Browser({
 					padding={1}
 					paddingBottom={0}
 					titles={['Sessions']}
-					height={browserHeight}
 				>
 					{sessions.length === 0 ? (
 						<Text dimColor>No sessions found in ~/.claude/projects</Text>
@@ -85,24 +88,23 @@ export default function Browser({
 								<Text dimColor>{'─'.repeat(width - 6)}</Text>
 							</Box>
 
-							{hasSessionsAbove && (
-								<Box>
-									<Text dimColor>
-										{' '.repeat(1)}... {rowsAbove} more above ...
-									</Text>
+							{/* Overflow indicator - items above */}
+							{hasItemsAbove && (
+								<Box justifyContent="center">
+									<Text dimColor>... {rowsAbove} {rowsAbove === 1 ? 'session' : 'sessions'} above</Text>
 								</Box>
 							)}
 
-							{visibleSessions.map((item, visibleIndex) => {
-								const index = startIndex + visibleIndex;
-								const isSelected = index === selectedIndex;
+							{/* Visible sessions */}
+							{visibleSessions.map((item, relativeIndex) => {
+								const absoluteIndex = startIndex + relativeIndex;
+								const isSelected = absoluteIndex === selectedIndex;
 								const selectedProject = sessions[selectedIndex]?.project || sessions[selectedIndex]?.projectName;
 								const itemProject = item.project || item.projectName;
 								const isSameProject = itemProject === selectedProject;
 								const created = item.birthtime ? new Date(item.birthtime).toLocaleDateString() : 'N/A';
 								const modified = item.mtime ? new Date(item.mtime).toLocaleDateString() : 'N/A';
 								const logCount = formatLogs(item.logCount || 0);
-								const tokens = item.usage ? (item.usage / 1000).toFixed(0) + 'k' : '0';
 
 								// Color: blue for same project, dimmed for others
 								const textColor = isSameProject ? '#3498db' : undefined;
@@ -134,11 +136,10 @@ export default function Browser({
 								);
 							})}
 
-							{hasSessionsBelow && (
-								<Box>
-									<Text dimColor>
-										{' '.repeat(1)}... {rowsBelow} more below ...
-									</Text>
+							{/* Overflow indicator - items below */}
+							{hasItemsBelow && (
+								<Box justifyContent="center">
+									<Text dimColor>... {rowsBelow} {rowsBelow === 1 ? 'session' : 'sessions'} below</Text>
 								</Box>
 							)}
 						</Box>
@@ -168,7 +169,7 @@ export default function Browser({
 			{/* Help text */}
 			<Box justifyContent="center">
 				<Text dimColor>
-					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter/→: Select Session | /: Filter
+					↑/↓: Navigate | Enter/→: Select Session | /: Filter
 				</Text>
 			</Box>
 		</Box>

@@ -1,12 +1,9 @@
-import { error } from 'console';
 import fs from 'fs';
 import path from 'path';
-import { cwd } from 'process';
-
 
 /**
  * Read logs from JSONL file
- * @param {string} filePath - Path to session file 
+ * @param {string} filePath - Path to session file
  * @return {array} Array of raw log entries
  */
 function readJsonl(filePath) {
@@ -24,32 +21,35 @@ function getMessageType(log) {
 	const message = log.message;
 
 	if (!message || !message.content) {
-		return null
-	};
+		return null;
+	}
 
-
-	if (message.role === "user") {
-		if (message.toolUseResult) {
-			return "tool_result"
+	if (message.role === 'user') {
+		if (log.toolUseResult) {
+			return 'tool_result';
 		} else {
-			return "user"
+			return 'user';
 		}
 	}
 
-	if (message.role === "assistant") {
+	if (message.role === 'assistant') {
 		for (const content of message.content) {
-			if (content.type === "thinking") {
-				return "thinking"
+			if (content.type === 'thinking') {
+				return 'thinking';
 			}
-			if (content.type === "tool_use") {
-				return "tool_use"
+			if (content.type === 'tool_use') {
+				return 'tool_use';
 			}
 		}
 
-		return "assistant"
+		return 'assistant';
 	}
 
-	error(`Encountered an unknown message type while parsing session data (message: {message})`)
+	console.error(
+		`Encountered an unknown message type while parsing session data (message: ${JSON.stringify(
+			message,
+		)})`,
+	);
 }
 
 /**
@@ -62,29 +62,33 @@ function getMessageContent(log, type) {
 	const message = log.message;
 
 	if (!message || !message.content) {
-		return null
-	};
+		return null;
+	}
 
-	if (type === "user") {
+	if (type === 'user') {
 		if (typeof message.content === 'string') {
 			return message.content;
 		}
 		return message.content[0]?.text || '';
-	} else if (type === "assistant") {
+	} else if (type === 'assistant') {
 		return message.content[0]?.text || '';
-	} else if (type === "thinking") {
+	} else if (type === 'thinking') {
 		return message.content[0]?.thinking || '';
-	} else if (type === "tool_use") {
+	} else if (type === 'tool_use') {
 		const input = message.content[0]?.input;
-		return typeof input === 'object' ? JSON.stringify(input, null, 2) : String(input || '');
-	} else if (type === "tool_result") {
+		return typeof input === 'object'
+			? JSON.stringify(input, null, 2)
+			: String(input || '');
+	} else if (type === 'tool_result') {
 		const content = message.content[0]?.content;
-		return typeof content === 'object' ? JSON.stringify(content, null, 2) : String(content || '');
+		return typeof content === 'object'
+			? JSON.stringify(content, null, 2)
+			: String(content || '');
 	}
 }
 
 /**
- * Calculate total token usage 
+ * Calculate total token usage
  * @param {object} log - Raw log object
  * @returns {number} Total token usage
  */
@@ -92,43 +96,48 @@ export function getTotalUsage(log) {
 	const message = log.message;
 
 	if (!message || !message.content) {
-		return null
+		return null;
 	}
 
 	const usage = message.usage;
 
 	if (!usage) return 0;
-	
+
 	const input = usage.input_tokens || 0;
 	const output = usage.output_tokens || 0;
 	const cacheRead = usage.cache_read_input_tokens || 0;
 	const cacheCreation = usage.cache_creation_input_tokens || 0;
-	
+
 	return input + output + cacheRead + cacheCreation;
 }
 
 /**
- * Format ISO timestamp for display
- * @param {string} timestamp - ISO-formatted timestamp
- */
-function formatTimestamp(timestamp) {
-	return new Date(timestamp).toLocaleTimeString()
-}
-
-/**
  * Parse log entries from a single file.
- * 
+ *
  * The type of each log is based on the message role and content.
- * @param {string} filePath - Path to session file
- * @returns {array} Array of parsed log entries. 
+ * @param {string} sessionPath - Path to session file
+ * @returns {Log[]} Array of parsed log entries.
+ *
+ * type LogType = 'assistant' | 'thinking' | 'took_use' | 'took_result' | 'agent';
+ *
+ * type Log {
+ *     uuid: string;
+ *     type: LogType;
+ *     timestamp: string;
+ *     content: string | Object;
+ *     usage: Number;
+ *     collapsed: Boolean,
+ *     tool_name: string,
+ *     tool_use_result: string | Object,
+ *     raw: Object,
+ * }
+ *
  */
-export function parseLogFile(filePath) {
-
-	const logs = readJsonl(filePath);
+export function loadSessionLogs(sessionPath) {
+	const logs = readJsonl(sessionPath);
 	const parsedLogs = [];
 
 	for (const log of logs) {
-
 		// Not processing summaries
 		if (log.type === 'summary') {
 			continue;
@@ -150,14 +159,14 @@ export function parseLogFile(filePath) {
 		let parsed = {
 			uuid: log.uuid,
 			type: type,
-			timestamp: formatTimestamp(log.timestamp),
+			timestamp: log.timestamp, // Store ISO timestamp
 			content: getMessageContent(log, type),
 			usage: getTotalUsage(log),
 			collapsed: true,
 			raw: log,
 		};
 
-		if (parsed.type === "user") {
+		if (parsed.type === 'user') {
 			if (parsed.raw.todos) {
 				// Handle in log detail view
 			}
@@ -166,15 +175,20 @@ export function parseLogFile(filePath) {
 			}
 		}
 
-		if (parsed.type === "tool_use") {
+		if (parsed.type === 'tool_use') {
 			parsed['tool_name'] = parsed.raw.message.content[0].name;
 		}
 
-		if (parsed.type === "tool_result") {
+		if (parsed.type === 'tool_result') {
 			const parentUuid = parsed.raw.message.parentUuid;
 			const parentIndex = parsedLogs.findIndex(l => l.uuid === parentUuid);
-			const toolName = parsedLogs[parentIndex].tool_name;
-			parsed['tool_name'] = toolName;
+			if (parentIndex >= 0) {
+				const toolName = parsedLogs[parentIndex].tool_name;
+				parsed['tool_name'] = toolName;
+			} else {
+				// Parent tool_use not found, use a placeholder
+				parsed['tool_name'] = 'unknown';
+			}
 			parsed['tool_use_result'] = parsed.raw.toolUseResult;
 		}
 
@@ -187,8 +201,8 @@ export function parseLogFile(filePath) {
 /**
  * Parse an agent log file and create start/end entries
  */
-function parseAgentFile(filePath) {
-	const entries = readJsonl(filePath);
+function parseAgentLogs(sessionPath) {
+	const entries = readJsonl(sessionPath);
 	const logs = [];
 
 	if (entries.length === 0) return logs;
@@ -198,9 +212,7 @@ function parseAgentFile(filePath) {
 	if (!agentId) return logs;
 
 	// Find first and last timestamps
-	const timestamps = entries
-		.filter(e => e.timestamp)
-		.map(e => e.timestamp);
+	const timestamps = entries.filter(e => e.timestamp).map(e => e.timestamp);
 
 	if (timestamps.length === 0) return logs;
 
@@ -211,16 +223,17 @@ function parseAgentFile(filePath) {
 	let totalUsage = 0;
 	for (const entry of entries) {
 		// Skip summary and other non-message entries
-		if (entry.type === 'summary' || entry.type === 'file-history-snapshot' || entry.type === 'queue-operation') {
+		if (
+			entry.type === 'summary' ||
+			entry.type === 'file-history-snapshot' ||
+			entry.type === 'queue-operation'
+		) {
 			continue;
 		}
 
 		// Sum up usage from user and assistant messages
 		if (entry.type === 'user' || entry.type === 'assistant') {
-			const message = entry.message;
-			if (message && message.usage) {
-				totalUsage += getTotalUsage(message.usage);
-			}
+			totalUsage += getTotalUsage(entry);
 		}
 	}
 
@@ -228,7 +241,7 @@ function parseAgentFile(filePath) {
 	logs.push({
 		uuid: `${agentId}-start`,
 		type: 'subagent',
-		timestamp: formatTimestamp(firstTimestamp),
+		timestamp: firstTimestamp, // Store ISO timestamp
 		agentId: agentId,
 		content: `Agent ${agentId} started`,
 		collapsed: true,
@@ -240,7 +253,7 @@ function parseAgentFile(filePath) {
 	logs.push({
 		uuid: `${agentId}-end`,
 		type: 'subagent',
-		timestamp: formatTimestamp(lastTimestamp),
+		timestamp: lastTimestamp, // Store ISO timestamp
 		agentId: agentId,
 		content: `Agent ${agentId} completed`,
 		collapsed: true,
@@ -251,109 +264,23 @@ function parseAgentFile(filePath) {
 	return logs;
 }
 
-/**
- * Extract metadata from a session file without parsing all logs
- * @param {string} filePath - Path to session file
- * @returns {object} Session metadata (cwd, usage, logCount, created, modified)
- */
-export function getSessionMetadata(filePath) {
-
-	const sessionStats = fs.statSync(filePath);
-	const created = sessionStats.birthtime;
-	const modified = sessionStats.mtime;
-
-	try {
-		const logs = readJsonl(filePath);
-
-		let cwd = null;
-		let created = null;
-		let totalUsage = 0;
-		let logCount = 0;
-		let lastTimestamp = null;
-
-		for (const log of logs) {
-
-			if (!cwd && log.cwd) {
-				cwd = log.cwd;
-			}
-
-			if (log.type === 'user' || log.type === 'assistant') {
-				logCount += 1;
-				totalUsage += getTotalUsage(log);
-				const message = log.message;
-			}
-		}
-
-		return {
-			cwd,
-			usage: totalUsage,
-			logCount,
-			created,
-			modified,
-		};
-	} catch (e) {
-		return { cwd: null, usage: 0, logCount: 0, created: null, modified: null };
-	}
-}
-
-/**
- * Parse logs from a session directory or file path
- * @param {string} sessionDir - Directory containing session files
- * @param {string} sessionId - Optional session ID to parse (without .jsonl extension)
- * @param {string} sessionPath - Optional direct path to session file (takes precedence)
- */
-export function parseSession(sessionDir, sessionId = null, sessionPath = null) {
-	let mainFilePath;
-	let currentSessionDir;
-
-	if (sessionPath) {
-		// Load from direct file path
-		mainFilePath = sessionPath;
-		currentSessionDir = path.dirname(sessionPath);
-	} else {
-		// Load from sessionDir/sessionId
-		const files = fs.readdirSync(sessionDir);
-
-		// Find main session file
-		let mainFile;
-		if (sessionId) {
-			mainFile = `${sessionId}.jsonl`;
-			if (!files.includes(mainFile)) {
-				throw new Error(`Session file ${mainFile} not found`);
-			}
-		} else {
-			// Find first non-agent file
-			mainFile = files.find(f => f.endsWith('.jsonl') && !f.startsWith('agent-'));
-			if (!mainFile) {
-				throw new Error('No main session file found');
-			}
-		}
-
-		mainFilePath = path.join(sessionDir, mainFile);
-		currentSessionDir = sessionDir;
-	}
-
-	// Parse main logs
-	const logs = parseLogFile(mainFilePath);
-
-	// Get session ID from the main file name (without .jsonl extension)
-	const currentSessionId = path.basename(mainFilePath, '.jsonl');
-
-	// Parse agent files that belong to this session
-	const allFiles = fs.readdirSync(currentSessionDir);
-	const agentFiles = allFiles.filter(f => f.startsWith('agent-') && f.endsWith('.jsonl'));
-	for (const agentFile of agentFiles) {
-		const agentPath = path.join(currentSessionDir, agentFile);
+function loadAgentLogs(sessionDir, sessionId) {
+	const files = fs.readdirSync(sessionDir);
+	const agentFiles = files.filter(
+		f => f.startsWith('agent-') && f.endsWith('.jsonl'),
+	);
+	const logs = [];
+	for (const file of agentFiles) {
+		const agentPath = path.join(sessionDir, file);
 
 		// Read first line to check if this agent belongs to this session
-		const firstLine = fs.readFileSync(agentPath, 'utf-8').split('\n')[0];
-		if (!firstLine.trim()) continue;
+		const line = fs.readFileSync(agentPath, 'utf-8').split('\n')[0];
+		if (!line.trim()) continue;
 
 		try {
-			const firstEntry = JSON.parse(firstLine);
-			// Only parse if this agent belongs to the current session
-			if (firstEntry.sessionId === currentSessionId) {
-				const agentLogs = parseAgentFile(agentPath);
+			const log = JSON.parse(line);
+			if (log.sessionId === sessionId) {
+				const agentLogs = parseAgentLogs(agentPath);
 				logs.push(...agentLogs);
 			}
 		} catch (e) {
@@ -362,7 +289,104 @@ export function parseSession(sessionDir, sessionId = null, sessionPath = null) {
 		}
 	}
 
-	// Sort by timestamp
+	return logs;
+}
+
+/**
+ * Extract metadata from a session file without parsing all logs
+ * @param {string} sessionPath - Path to session file
+ * @returns {SessionMetadata} Session metadata (cwd, usage, logCount, created, modified)
+ *
+ * type SessionMetadata = {
+ *   project: string | null;
+ *   created: Date;
+ *   modified: Date;
+ *   log_count: Number;
+ *   token_usage: Number;
+ * };
+ *
+ */
+export function loadSessionMetadata(sessionPath) {
+	const sessionStats = fs.statSync(sessionPath);
+	const created = sessionStats.birthtime;
+	const modified = sessionStats.mtime;
+
+	try {
+		const logs = readJsonl(sessionPath);
+
+		let project = null;
+		let logCount = 0;
+		let tokenUsage = 0;
+
+		for (const log of logs) {
+			if (!project && log.project) {
+				project = log.project;
+			}
+			if (log.type === 'user' || log.type === 'assistant') {
+				logCount += 1;
+				tokenUsage += getTotalUsage(log);
+			}
+		}
+
+		return {
+			created,
+			modified,
+			logCount,
+			tokenUsage,
+		};
+	} catch (e) {
+		return {
+			created: null,
+			modified: null,
+			usage: 0,
+			logCount: 0,
+			duration: null,
+		};
+	}
+}
+
+/**
+ * Parse logs from a session directory or file path
+ * @param {string} sessionDir - Directory containing session files
+ * @param {string} sessionId - Optional session ID to parse (without .jsonl extension)
+ * @param {string} sessionPath - Optional direct path to session file (takes precedence)
+ * @returns Session data object {logs, sessionId, project: projectName, startDatetime}
+ * 
+ * type Session = {
+	 uuid: uuid;
+	 path: string;
+	 project: string;
+	 created: Date;
+	 modified: Date;
+	 logCount: Number;
+	 tokenUsage: Number;
+	 logs: Log[];
+}
+ * 
+ */
+export function loadSession(sessionPath) {
+	const sessionDir = path.dirname(sessionPath);
+	const sessionId = path.parse(sessionPath).name;
+	const metadata = loadSessionMetadata(sessionPath);
+	const logs = loadSessionLogs(sessionPath);
+
+	// Check if this is an agent session (starts with 'agent-')
+	let parentSessionId = null;
+	if (sessionId.startsWith('agent-') && logs.length > 0) {
+		// Agent logs contain sessionId field pointing to parent
+		const firstLog = logs.find(log => log.raw?.sessionId);
+		if (firstLog?.raw?.sessionId) {
+			parentSessionId = firstLog.raw.sessionId;
+		}
+	}
+
+	// Merge agent logs (only for non-agent sessions)
+	if (!sessionId.startsWith('agent-')) {
+		const agentLogs = loadAgentLogs(sessionDir, sessionId);
+		logs.push(...agentLogs);
+	}
+
+	// Sort chronologically
 	logs.sort((a, b) => {
 		if (a.timestamp < b.timestamp) return -1;
 		if (a.timestamp > b.timestamp) return 1;
@@ -374,18 +398,11 @@ export function parseSession(sessionDir, sessionId = null, sessionPath = null) {
 		log.id = index + 1;
 	});
 
-	// Extract project name from directory path
-	// Format: ~/.claude/projects/something-with-project-name
-	const dirName = path.basename(currentSessionDir);
-	const projectName = dirName.replace(/-/g, ' ').replace(/^\./, '');
-
-	// Get start datetime from first log
-	const startDatetime = logs.length > 0 && logs[0].isoTimestamp ? new Date(logs[0].isoTimestamp).toLocaleString() : null;
-
 	return {
+		uuid: sessionId,
+		path: sessionPath,
+		parentSessionId,
+		...metadata,
 		logs,
-		sessionId: currentSessionId,
-		project: projectName,
-		startDatetime,
 	};
 }

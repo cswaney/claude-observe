@@ -1,28 +1,25 @@
 import React from 'react';
-import { Box, Text } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
+import {Box, Text} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
 import Summary from './Summary.js';
 import LogsList from './LogsList.js';
 
 export default function Session({
-	width = 80,
-	logs = [],
+	session = null,
 	filteredLogs = [],
-	sessionId = null,
-	project = null,
-	startDatetime = null,
-	agentViewData = null,
 	selectedIndex = 0,
 	activeFilters = {},
 	searchMode = false,
 	searchQuery = '',
 	activeSearch = '',
 	collapsedStates = {},
-	sessionMetadata = null,
-	logsListHeight = 15
+	width = 80,
+	logsListHeight = 15,
 }) {
+	const sessionId = session.uuid;
+
 	// Calculate how many lines a log takes
-	const getLogHeight = (log) => {
+	const getLogHeight = log => {
 		// Safety check for undefined logs
 		if (!log) return 1;
 
@@ -47,62 +44,76 @@ export default function Session({
 	};
 
 	// Calculate visible window of logs to render based on available height
-	// Try to keep the selected log centered in the viewport
-	const availableLines = logsListHeight - 4; // Subtract borders and padding
-	const targetCenterLines = Math.floor(availableLines / 2);
+	// Strategy: Position selected log's first line at floor(availableLines / 2)
+	const TITLED_BOX_BORDERS = 2; // Top and bottom borders
+	const TITLED_BOX_PADDING = 2; // Top and bottom padding
+	const BUFFER_LINES = 2; // Extra buffer to ensure logs render properly
+	const availableLines = logsListHeight - TITLED_BOX_BORDERS - TITLED_BOX_PADDING + BUFFER_LINES;
+	const targetLineForSelected = Math.floor(availableLines / 2);
 
 	let startIndex = 0;
 	let endIndex = 0;
 
-	// Count total lines above selected log
-	let linesAboveSelected = 0;
-	for (let i = 0; i < selectedIndex; i++) {
-		linesAboveSelected += getLogHeight(filteredLogs[i]);
+	// Count how many lines we could fill above the selected log
+	let linesAbove = 0;
+	let tempIndex = selectedIndex;
+	while (tempIndex > 0) {
+		const logHeight = getLogHeight(filteredLogs[tempIndex - 1]);
+		linesAbove += logHeight;
+		tempIndex--;
 	}
 
-	// Count total lines below selected log
-	let linesBelowSelected = 0;
-	for (let i = selectedIndex + 1; i < filteredLogs.length; i++) {
-		linesBelowSelected += getLogHeight(filteredLogs[i]);
-	}
-
-	// Determine where to start the viewport
-	if (linesAboveSelected < targetCenterLines) {
-		// Near the top - not enough content above to center, so start from beginning
+	// Decide viewport strategy based on content above selected log
+	if (linesAbove < targetLineForSelected) {
+		// Near the top - not enough content above to center
+		// Start from beginning and fill entire viewport
 		startIndex = 0;
-	} else if (linesBelowSelected < targetCenterLines) {
-		// Near the bottom - not enough content below to center, so work backward from end
-		// Fill backward until we run out of space or logs
-		let lines = 0;
-		let idx = filteredLogs.length;
-		while (idx > 0 && lines < availableLines) {
-			const logHeight = getLogHeight(filteredLogs[idx - 1]);
-			if (lines + logHeight > availableLines) break;
-			lines += logHeight;
-			idx--;
-		}
-		startIndex = idx;
 	} else {
-		// Enough content on both sides - center the selected log
-		// Walk backward from selected to build up to the center point
-		let lines = 0;
-		let idx = selectedIndex;
-		while (idx > 0 && lines < targetCenterLines) {
-			const logHeight = getLogHeight(filteredLogs[idx - 1]);
-			if (lines + logHeight > targetCenterLines) break;
-			lines += logHeight;
-			idx--;
+		// Enough content above - try to center the selected log
+		// Fill backward from selected log to get close to targetLineForSelected
+		linesAbove = 0;
+		startIndex = selectedIndex;
+		while (startIndex > 0) {
+			const logHeight = getLogHeight(filteredLogs[startIndex - 1]);
+			const wouldBe = linesAbove + logHeight;
+
+			// If adding this log would exceed target, decide whether to include it
+			if (wouldBe > targetLineForSelected) {
+				// Include it if we're currently further from target than we would be with it
+				const distanceWithout = targetLineForSelected - linesAbove;
+				const distanceWith = wouldBe - targetLineForSelected;
+				if (distanceWith < distanceWithout) {
+					linesAbove = wouldBe;
+					startIndex--;
+				}
+				break;
+			}
+
+			linesAbove += logHeight;
+			startIndex--;
 		}
-		startIndex = idx;
 	}
 
-	// Fill viewport forward from startIndex
-	let lines = 0;
+	// Now fill forward from startIndex until we run out of space
+	// Always include the selected log, and stop after we've filled availableLines
+	let totalLines = 0;
 	endIndex = startIndex;
-	while (endIndex < filteredLogs.length && lines < availableLines) {
+	while (endIndex < filteredLogs.length) {
 		const logHeight = getLogHeight(filteredLogs[endIndex]);
-		if (lines + logHeight > availableLines) break;
-		lines += logHeight;
+		const isSelected = endIndex === selectedIndex;
+
+		// Check if adding this log would exceed available space
+		if (totalLines + logHeight > availableLines) {
+			// Always include the selected log even if it exceeds space
+			if (isSelected) {
+				totalLines += logHeight;
+				endIndex++;
+			}
+			// Stop - we've filled the viewport
+			break;
+		}
+
+		totalLines += logHeight;
 		endIndex++;
 	}
 
@@ -115,26 +126,18 @@ export default function Session({
 	// Generate filter status text
 	const activeFilterNames = Object.entries(activeFilters)
 		.filter(([_, active]) => active)
-		.map(([type, _]) => type === 'subagent' ? 'agents' : type);
-	const filterText = activeFilterNames.length === 5 ? '' : ` | Filters: ${activeFilterNames.join(', ')}`;
+		.map(([type, _]) => (type === 'subagent' ? 'agents' : type));
+	const filterText =
+		activeFilterNames.length === 5
+			? ''
+			: ` | Filters: ${activeFilterNames.join(', ')}`;
 
-	// Determine what logs to show in Summary
-	const summaryLogs = agentViewData ? agentViewData.logs : logs;
-
-	const summaryTitle = agentViewData
-		? `${project}/${sessionId}/agent-${agentViewData.agentId}`
-		: (sessionId ? `${project}/${sessionId}` : null);
-
-	const listViewTitle = agentViewData
-		? `Agent: ${sessionId}/agent-${agentViewData.agentId}`
-		: (sessionId ? `Session: ${sessionId}` : 'Log Browser');
-
-	const listViewKey = agentViewData ? `agent-view-${agentViewData.agentId}` : 'list-view';
-
-	// Outer box title: show agent ID when in agent view, otherwise show session
-	const outerBoxTitle = agentViewData
-		? `Session: ${sessionId} > Agent: ${agentViewData.agentId}`
-		: (sessionId ? `Session: ${sessionId}` : 'Session');
+	// Outer box title: show parent session breadcrumb if this is an agent session
+	const outerBoxTitle = session.parentSessionId
+		? `Session: ${session.parentSessionId} > Agent: ${sessionId}`
+		: sessionId
+		? `Session: ${sessionId}`
+		: 'Session';
 
 	return (
 		<Box flexDirection="column" width={width}>
@@ -145,61 +148,22 @@ export default function Session({
 				borderColor="gray"
 				padding={1}
 				titles={[outerBoxTitle]}
-				key={agentViewData ? `agent-${agentViewData.agentId}` : 'session'}
+				key={session.parentSessionId ? `agent-${sessionId}` : 'session'}
 			>
+				<Summary session={session} width={width} />
 
-				<Summary
-					width={width}
-					logs={summaryLogs}
-					project={project}
-					session={sessionId}
-					startDatetime={startDatetime}
-					title={summaryTitle}
-					sessionMetadata={sessionMetadata}
-				/>
-
-				{/* Logs List */}
-				{/* <TitledBox
-					borderStyle="single"
-					borderColor="gray"
-					padding={1}
-					key={listViewKey}
-					titles={["Logs"]}
-				>
-					<Box flexDirection="column">
-						{hasLogsAbove && (
-							<Text dimColor>
-								... {startIndex} more above ...
-							</Text>
-						)}
-						<LogsList
-							width={width}
-							logs={visibleLogs}
-							selectedIndex={selectedIndex - startIndex}
-							collapsedStates={collapsedStates}
-						/>
-						{hasLogsBelow && (
-							<Text dimColor>
-								... {filteredLogs.length - endIndex} more below ...
-							</Text>
-						)}
-					</Box>
-				</TitledBox> */}
 				<LogsList
 					width={width}
 					logs={visibleLogs}
 					selectedIndex={selectedIndex - startIndex}
 					collapsedStates={collapsedStates}
-					listViewKey={listViewKey}
 					hasLogsAbove={hasLogsAbove}
 					hasLogsBelow={hasLogsBelow}
 					filteredLogs={filteredLogs}
 					startIndex={startIndex}
 					endIndex={endIndex}
 					height={logsListHeight}
-				>
-
-				</LogsList>
+				/>
 			</TitledBox>
 
 			{/* Search Input Display */}
@@ -218,9 +182,14 @@ export default function Session({
 			)}
 
 			{/* Help Text */}
-			<Box justifyContent="center" marginTop={searchMode || activeSearch ? 0 : 1}>
+			<Box
+				justifyContent="center"
+				marginTop={searchMode || activeSearch ? 0 : 1}
+			>
 				<Text dimColor>
-					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter: Expand/Collapse | →: Detail | /: Search | a/c: All | 1-5: Filter{filterText} | {selectedIndex + 1}/{filteredLogs.length}
+					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter:
+					Expand/Collapse | →: Detail | /: Search | a/c: All | 1-5: Filter
+					{filterText} | {selectedIndex + 1}/{filteredLogs.length}
 				</Text>
 			</Box>
 		</Box>

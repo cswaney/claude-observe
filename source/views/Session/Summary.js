@@ -1,12 +1,116 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { TitledBox } from '@mishieck/ink-titled-box';
-
+import { Histogram } from '../../components/Chart';
 import { formatTokens } from '../../utils';
 
-function TokenDistribution({ data, totalUsage, maxWidth }) {
+/**
+ * 
+ * @param {} -
+ * @param {} -
+ * @returns 
+ */
+function SessionInfo({ session, width = 72, height = 9, padding = 1 }) {
 
-	const createStackedBar = (data, totalValue, barWidth) => {
+	const totalUsage = session.logs.reduce((sum, log) => sum + (log.usage || 0), 0);
+
+	let duration = 'N/A';
+	const timestamps = session.logs.map(log => new Date(log.timestamp)).filter(Boolean);
+	if (timestamps.length > 0) {
+		const startTime = timestamps[0];
+		const endTime = timestamps[timestamps.length - 1];
+		const elapsedMilliseconds = endTime - startTime;
+		const elapsedSeconds = Math.floor(elapsedMilliseconds / 1000);
+		const hours = Math.floor(elapsedSeconds / 3600);
+		const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+		const seconds = elapsedSeconds % 60;
+		const duration = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+	}
+
+	return (
+		<TitledBox
+			borderStyle="single"
+			borderColor="gray"
+			titles={['Info']}
+			padding={padding}
+			width={width}
+			height={height}
+		>
+			<Box
+				flexDirection="column"
+			>
+				<Box>
+					<Text dimColor>Project: </Text>
+					<Text>{session.project || 'N/A'}</Text>
+				</Box>
+				<Box>
+					<Text dimColor>Created At: </Text>
+					<Text>{new Date(session.created).toLocaleString()}</Text>
+				</Box>
+				<Box>
+					<Text dimColor>Last Modified: </Text>
+					<Text>{new Date(session.modified).toLocaleString()}</Text>
+				</Box>
+				<Box>
+					<Text dimColor>Logs: </Text>
+					<Text>{session.logs.length}</Text>
+				</Box>
+				<Box>
+					<Text dimColor>Duration: </Text>
+					<Text>{duration}</Text>
+				</Box>
+				<Box>
+					<Text dimColor>Usage: </Text>
+					<Text>{totalUsage.toLocaleString()} tokens</Text>
+				</Box>
+			</Box>
+		</TitledBox>
+	);
+}
+
+/**
+ * 
+ * @param {*} logs 
+ * @param {*} width 
+ * @param {*} height 
+ * @param {*} padding 
+ * @returns 
+ */
+function TokenDistribution({ session, width, height=9, padding=1 }) {
+
+	const totalUsage = session.logs.reduce((sum, log) => sum + (log.usage || 0), 0);
+
+	const tokensByType = {
+		user: 0,
+		assistant: 0,
+		tool: 0,
+		thinking: 0,
+		subagent: 0,
+	};
+
+	session.logs.forEach(log => {
+		const usage = log.usage || 0;
+		if (log.type === 'user') {
+			tokensByType.user += usage;
+		} else if (log.type === 'assistant') {
+			tokensByType.assistant += usage;
+		} else if (log.type === 'tool_use' || log.type === 'tool_result') {
+			tokensByType.tool += usage;
+		} else if (log.type === 'thinking') {
+			tokensByType.thinking += usage;
+		} else if (log.type === 'subagent') {
+			tokensByType.subagent += usage;
+		}
+	});
+
+	const data = [
+		{ label: 'Assistant', value: tokensByType.assistant, color: '#2ecc71' },
+		{ label: 'Tool', value: tokensByType.tool, color: '#3498db' },
+		{ label: 'Thinking', value: tokensByType.thinking, color: '#9b59b6' },
+		{ label: 'Agents', value: tokensByType.subagent, color: '#e74c3c' },
+	];
+
+	const stackedBars = (data, totalValue, barWidth) => {
 		const segments = data.map(item => ({
 			...item,
 			percentage: (item.value / totalValue) * 100,
@@ -25,16 +129,15 @@ function TokenDistribution({ data, totalUsage, maxWidth }) {
 	return <TitledBox
 		borderStyle="single"
 		borderColor="gray"
-		padding={1}
 		titles={["Usage"]}
-		// marginTop={1}
-		height={9}
+		padding={padding}
+		height={height}
 	>
 		{totalUsage > 0 && data.length > 0 && (
 			<Box flexDirection="column">
 
 				<Box>
-					{createStackedBar(data, totalUsage, maxWidth - 6).map((segment, idx) => (
+					{stackedBars(data, totalUsage, width - 6).map((segment, idx) => (
 						<Text key={`segment-${idx}`} color={segment.color}>
 							{'█'.repeat(segment.width)}
 						</Text>
@@ -46,7 +149,6 @@ function TokenDistribution({ data, totalUsage, maxWidth }) {
 					marginTop={1}
 					gap={1}
 				>
-					{/* First row: Assistant and Tool */}
 					<Box justifyContent="center" gap={2}>
 						{data.slice(0, 2).map((item, idx) => {
 							const percentage = (item.value / totalUsage) * 100;
@@ -60,7 +162,6 @@ function TokenDistribution({ data, totalUsage, maxWidth }) {
 							);
 						})}
 					</Box>
-					{/* Second row: Thinking and Agents */}
 					<Box justifyContent="center" gap={2}>
 						{data.slice(2, 4).map((item, idx) => {
 							const percentage = (item.value / totalUsage) * 100;
@@ -80,384 +181,204 @@ function TokenDistribution({ data, totalUsage, maxWidth }) {
 	</TitledBox>
 }
 
-function ActivityChart({ activityByType, activityStats, timeLabels }) {
-	return <TitledBox
-		borderStyle="single"
-		borderColor="gray"
-		padding={1}
-		// marginTop={1}
-    paddingBottom={0}
-		// titles={["Activity (tokens/min, log scale)"]}
-		titles={["Activity"]}
-	>
-		{activityByType.assistant.length > 0 && (
-			<Box flexDirection="column" marginTop={1}>
-				{/* Assistant activity */}
-				<Box>
-					{activityByType.assistant.map((point, idx) => (
-						<Text key={`assistant-${idx}`} color="#2ecc71">
-							{point.char}
-						</Text>
-					))}
-				</Box>
+/**
+ * Chart component representing session activity.
+ * 
+ * The chart displays the number of tokens for each log type per unit of time over the
+ * duration of the session. Data is normalized so that comparisons can be made across
+ * log types.
+ * 
+ * @param {array} logs - Array of session logs as returned by `parseLogFile`
+ * @param {int} width - Width (columns) of the plotted area
+ * @param {int} height - Height (rows) of the plotted area
+*/
+function TokenSparklines({ session, width = 120, height = 3 }) {
 
-				{/* Tool activity */}
-				<Box marginTop={1}>
-					{activityByType.tool.map((point, idx) => (
-						<Text key={`tool-${idx}`} color="#3498db">
-							{point.char}
-						</Text>
-					))}
-				</Box>
+	const logsWithData = session.logs.filter(log =>
+		log.timestamp && log.usage > 0
+	);
 
-				{/* Thinking activity */}
-				<Box marginTop={1}>
-					{activityByType.thinking.map((point, idx) => (
-						<Text key={`thinking-${idx}`} color="#9b59b6">
-							{point.char}
-						</Text>
-					))}
-				</Box>
-
-				{/* Agent activity */}
-				<Box marginTop={1}>
-					{activityByType.subagent.map((point, idx) => (
-						<Text key={`subagent-${idx}`} color="red">
-							{point.char}
-						</Text>
-					))}
-				</Box>
-
-				{/* Time axis */}
-				{timeLabels.length > 0 && (
-					<Box marginTop={1} justifyContent="space-between">
-						{timeLabels.map((label, idx) => (
-							<Text key={`time-${idx}`} dimColor>{label.time}</Text>
-						))}
-					</Box>
-				)}
-
-				{/* Stats labels below sparklines */}
-				{/* <Box marginTop={1} justifyContent="flex-end">
-					<Text dimColor>Max: {Math.max(activityStats.assistant.max, activityStats.tool.max, activityStats.thinking.max, activityStats.subagent.max).toLocaleString()}, Avg: {Math.round((activityStats.assistant.avg + activityStats.tool.avg + activityStats.thinking.avg + activityStats.subagent.avg) / 4).toLocaleString()}</Text>
-				</Box> */}
-			</Box>
-		)}
-	</TitledBox>
-}
-
-function histogram(logs, categories, width) {
-	if (!logs || logs.length === 0) {
-		return {};
+	if (logsWithData.length === 0) {
+		return <Text>No log data available with timestamps and usage</Text>;
 	}
 
-	const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
-	const startTime = new Date(sortedLogs[0].raw.timestamp);
-	const endTime = new Date(sortedLogs[sortedLogs.length - 1].raw.timestamp);
-	const duration = endTime - startTime;
-	const binSize = duration / width;
-	const hist = {};
-	
-	categories.forEach(category => {
-		hist[category] = Array(width).fill(0);
-	});
+	const timestamps = logsWithData.map(log => new Date(log.timestamp).getTime() / 1000);
+	const minTime = Math.min(...timestamps);
+	const maxTime = Math.max(...timestamps);
+	const startDate = new Date(minTime * 1000);
+	const endDate = new Date(maxTime * 1000);
 
-	sortedLogs.forEach(log => {
-		if (!categories.includes(log.type)) {
-			return;
-		}
-		const timeSinceStart = new Date(log.raw.timestamp) - startTime;
-		let binIndex = Math.floor(timeSinceStart / binSize);
-		if (binIndex >= width) {
-			binIndex = width - 1;
-		}
-		hist[log.type][binIndex] += (log.usage || 0);
-	});
-
-	return hist;
-}
-
-export default function Summary({ width = 80, logs = [], project = 'Unknown Project', session = 'Unknown Session', startDatetime = null, title = null, sessionMetadata = null }) {
-	
-	const totalUsage = logs.reduce((sum, log) => sum + (log.usage || 0), 0);
-
-	const tokensByType = {
-		user: 0,
-		assistant: 0,
-		tool: 0,
-		thinking: 0,
-		subagent: 0,
-	};
-
-	logs.forEach(log => {
-		const usage = log.usage || 0;
-		if (log.type === 'user') {
-			tokensByType.user += usage;
-		} else if (log.type === 'assistant') {
-			tokensByType.assistant += usage;
-		} else if (log.type === 'tool_use' || log.type === 'tool_result') {
-			tokensByType.tool += usage;
-		} else if (log.type === 'thinking') {
-			tokensByType.thinking += usage;
-		} else if (log.type === 'subagent') {
-			tokensByType.subagent += usage;
-		}
-	});
-
-	const chartData = [
-		{ label: 'Assistant', value: tokensByType.assistant, color: '#2ecc71' },
-		{ label: 'Tool', value: tokensByType.tool, color: '#3498db' },
-		{ label: 'Thinking', value: tokensByType.thinking, color: '#9b59b6' },
-		{ label: 'Agents', value: tokensByType.subagent, color: '#e74c3c' },
+	const logTypes = [
+		{ name: 'assistant', color: '#2ecc71', label: 'Assistant' },
+		{ name: 'tool_use', color: '#3498db', label: 'Tool Use' },
+		{ name: 'thinking', color: '#9b59b6', label: 'Thinking' },
+		// { name: 'subagent', color: '#e74c3c', label: 'Agents' }
 	];
 
-
-	// Calculate duration (elapsed time between first and last timestamp)
-	const timestamps = logs.map(log => log.timestamp).filter(Boolean);
-	let duration = 'N/A';
-	if (timestamps.length > 0) {
-		const parseTime = (timeStr) => {
-			const [hours, minutes, seconds] = timeStr.split(':').map(Number);
-			return hours * 3600 + minutes * 60 + seconds;
+	const dataByType = logTypes.map(({ name }) => {
+		const filtered = logsWithData.filter(log => log.type === name);
+		return {
+			x: filtered.map(log => new Date(log.timestamp).getTime() / 1000),
+			y: filtered.map(log => log.usage),
+			totalTokens: filtered.reduce((sum, log) => sum + log.usage, 0),
+			count: filtered.length
 		};
-		const startSeconds = parseTime(timestamps[0]);
-		const endSeconds = parseTime(timestamps[timestamps.length - 1]);
-		const elapsedSeconds = endSeconds - startSeconds;
+	});
 
-		const hours = Math.floor(elapsedSeconds / 3600);
-		const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-		const seconds = elapsedSeconds % 60;
+	const totalTokens = dataByType.reduce((sum, data) => sum + data.totalTokens, 0);
 
-		duration = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-	}
+	const chartWidth = width - 4; // Account for border (2) and padding (2)
 
-	// Count tool calls
-	const toolCalls = logs.filter(log => log.type === 'tool').length;
+	const histogram = (data) => {
+		const xStep = (maxTime - minTime) / chartWidth;
+		const bins = Array(chartWidth).fill(0);
 
-	// Count agent calls (subagent starts only, not ends)
-	const agentCalls = logs.filter(log => log.type === 'subagent' && !log.isLast).length;
-
-	// Calculate activity over time (tokens per minute) by type
-	const activityByType = {
-		assistant: [],
-		tool: [],
-		thinking: [],
-		subagent: []
-	};
-
-	const activityStats = {
-		assistant: { max: 0, avg: 0 },
-		tool: { max: 0, avg: 0 },
-		thinking: { max: 0, avg: 0 },
-		subagent: { max: 0, avg: 0 }
-	};
-
-	let timeLabels = [];
-
-	if (timestamps.length > 0) {
-		const parseTime = (timeStr) => {
-			const [hours, minutes, seconds] = timeStr.split(':').map(Number);
-			return hours * 3600 + minutes * 60 + seconds;
-		};
-
-		const startSeconds = parseTime(timestamps[0]);
-		const endSeconds = parseTime(timestamps[timestamps.length - 1]);
-		const durationMinutes = Math.ceil((endSeconds - startSeconds) / 60);
-
-		// Create buckets for each minute and type
-		const bucketsByType = {
-			assistant: Array(Math.max(durationMinutes, 1)).fill(0),
-			tool: Array(Math.max(durationMinutes, 1)).fill(0),
-			thinking: Array(Math.max(durationMinutes, 1)).fill(0),
-			subagent: Array(Math.max(durationMinutes, 1)).fill(0)
-		};
-
-		// Aggregate tokens by minute and type
-		logs.forEach((log, idx) => {
-			if (log.timestamp && log.usage) {
-				const logSeconds = parseTime(log.timestamp);
-				const minuteIndex = Math.floor((logSeconds - startSeconds) / 60);
-				if (minuteIndex >= 0 && minuteIndex < bucketsByType.assistant.length) {
-					if (log.type === 'assistant') {
-						bucketsByType.assistant[minuteIndex] += log.usage;
-					} else if (log.type === 'tool') {
-						bucketsByType.tool[minuteIndex] += log.usage;
-					} else if (log.type === 'thinking') {
-						bucketsByType.thinking[minuteIndex] += log.usage;
-					} else if (log.type === 'subagent' && !log.isLast) {
-						// For agents, spread tokens across their duration
-						// Find the end entry for this agent
-						const endEntry = logs.find(l => l.type === 'subagent' && l.agentId === log.agentId && l.isLast);
-						if (endEntry && endEntry.timestamp) {
-							const endSeconds = parseTime(endEntry.timestamp);
-							const startMinute = Math.floor((logSeconds - startSeconds) / 60);
-							const endMinute = Math.floor((endSeconds - startSeconds) / 60);
-							const durationMinutes = Math.max(endMinute - startMinute, 1);
-							const tokensPerMinute = log.usage / durationMinutes;
-
-							// Distribute tokens across the duration
-							for (let m = startMinute; m <= endMinute; m++) {
-								if (m >= 0 && m < bucketsByType.subagent.length) {
-									bucketsByType.subagent[m] += tokensPerMinute;
-								}
-							}
-						} else {
-							// Fallback: add to single minute if no end found
-							bucketsByType.subagent[minuteIndex] += log.usage;
-						}
-					}
-				}
+		data.x.forEach((value, xIndex) => {
+			let dIndex = Math.floor((value - minTime) / xStep);
+			if (dIndex === chartWidth) {
+				dIndex -= 1;
+			}
+			if (dIndex >= 0 && dIndex < chartWidth) {
+				bins[dIndex] += data.y[xIndex];
 			}
 		});
 
-		// Create activity data for each type
-		const blockChars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+		return bins;
+	};
 
-		['assistant', 'tool', 'thinking', 'subagent'].forEach(type => {
-			const buckets = bucketsByType[type];
-			const maxTokens = Math.max(...buckets, 1);
-			const nonZeroBuckets = buckets.filter(t => t > 0);
-			const avgTokens = nonZeroBuckets.length > 0
-				? nonZeroBuckets.reduce((sum, t) => sum + t, 0) / nonZeroBuckets.length
-				: 0;
+	const binsByType = dataByType.map(data => histogram(data));
+	const yMax = Math.max(...binsByType.flat());
 
-			activityStats[type] = {
-				max: maxTokens,
-				avg: Math.round(avgTokens)
-			};
+	return (
+		<Box flexDirection="column" padding={1}>
 
-			buckets.forEach((tokens, idx) => {
-				// Use log scale for better variation at lower values
-				// intensity = log(tokens + 1) / log(maxTokens + 1)
-				// This compresses high values and expands low values
-				let charIndex;
-				if (tokens === 0) {
-					charIndex = 0;
-				} else {
-					const intensity = Math.log(tokens + 1) / Math.log(maxTokens + 1);
-					charIndex = Math.min(Math.floor(intensity * blockChars.length), blockChars.length - 1);
-				}
-				activityByType[type].push({
-					minute: idx,
-					tokens,
-					char: blockChars[charIndex],
-					intensity: tokens === 0 ? 0 : Math.log(tokens + 1) / Math.log(maxTokens + 1)
-				});
+			{/* Normalized chart */}
+			<TitledBox
+				borderStyle="single"
+				borderColor="gray"
+				padding={1}
+				paddingBottom={0}
+				titles={["Activity (Normalized)"]}
+				width={width}
+				marginTop={1}
+			>
+				<Box flexDirection="column" marginTop={-1}>
+					{logTypes.map(({ name, color, label }, idx) => {
+						const data = dataByType[idx];
+
+						return (
+							<Box key={name} flexDirection="column">
+								{data.x.length > 0 ? (
+									<Histogram
+										x={data.x}
+										y={data.y}
+										width={chartWidth}
+										height={height}
+										xMin={minTime}
+										xMax={maxTime}
+										yMin={0}
+										yMax={yMax}
+										color={color}
+									/>
+								) : (
+									<Box height={height + 1}>
+										<Text> </Text>
+									</Box>
+								)}
+							</Box>
+						);
+					})}
+
+					<TimeAxisLegend
+						data={dataByType}
+						logs={logsWithData}
+						types={logTypes}
+						startDate={startDate}
+						endDate={endDate}
+						totalTokens={totalTokens}
+						width={chartWidth}
+					/>
+				</Box>
+			</TitledBox>
+		</Box>
+	);
+}
+
+/**
+ * Combined time axis and legened of Sparkline plot.
+ * 
+ * @param {array} data - An array whose `i`-th entry contain token data for the `i`-th log type.
+ * @param {array} types - An array of log types ('Assistant', 'Thinking', and 'Tool Use').
+ * @returns 
+ */
+function TimeAxisLegend({ data, logs, types, totalTokens, width }) {
+
+	const timestamps = logs.map(log => new Date(log.timestamp).getTime() / 1000);
+	const minTime = Math.min(...timestamps);
+	const maxTime = Math.max(...timestamps);
+	const startDate = new Date(minTime * 1000);
+	const endDate = new Date(maxTime * 1000);
+	const isMultiDaySession = startDate.toDateString() !== endDate.toDateString();
+
+	const formatTimeLabel = (date) => {
+		const time = date.toLocaleTimeString('en-US', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: true
+		});
+
+		if (isMultiDaySession) {
+			const dateStr = date.toLocaleDateString('en-US', {
+				month: 'short',
+				day: 'numeric'
 			});
-		});
-
-		// Calculate time axis labels
-		const sparklineWidth = activityByType.assistant.length;
-		const timestampWidth = 5; // "HH:MM" format
-
-		// Determine how many intermediate timestamps we can fit (0-3)
-		// Need space for timestamps: start (5) + end (5) + intermediate (5 each)
-		// Plus spacing between them (~7 chars minimum)
-		let numIntermediateTimestamps = 0;
-		const minSpacing = 7;
-
-		if (sparklineWidth >= 2 * timestampWidth + 3 * timestampWidth + 4 * minSpacing) {
-			numIntermediateTimestamps = 3; // Can fit 5 total timestamps
-		} else if (sparklineWidth >= 2 * timestampWidth + 2 * timestampWidth + 3 * minSpacing) {
-			numIntermediateTimestamps = 2; // Can fit 4 total timestamps
-		} else if (sparklineWidth >= 2 * timestampWidth + timestampWidth + 2 * minSpacing) {
-			numIntermediateTimestamps = 1; // Can fit 3 total timestamps
+			return `${dateStr} ${time}`;
 		}
-		// else 0 intermediate (just start and end)
 
-		const totalTimestamps = 2 + numIntermediateTimestamps;
+		return time;
+	};
 
-		// Calculate timestamp positions and values
-		timeLabels = [];
-		for (let i = 0; i < totalTimestamps; i++) {
-			const fraction = i / (totalTimestamps - 1);
-			const timeSeconds = startSeconds + Math.round(fraction * (endSeconds - startSeconds));
-			const hours = Math.floor(timeSeconds / 3600) % 24;
-			const minutes = Math.floor((timeSeconds % 3600) / 60);
-			const timeStr = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+	return (
+		<Box marginTop={1} justifyContent="space-between" width={width}>
+			<Text dimColor>{formatTimeLabel(startDate)}</Text>
+			<Box gap={3}>
+				{types.map(({ name, color, label }, idx) => {
+					const percentage = totalTokens > 0 ? ((data[idx].totalTokens / totalTokens) * 100).toFixed(1) : 0;
+					return (
+						<Box key={`legend-${name}`} gap={1}>
+							<Text color={color}>█</Text>
+							<Text>{label}</Text>
+							<Text dimColor>({percentage}%)</Text>
+						</Box>
+					);
+				})}
+			</Box>
+			<Text dimColor>{formatTimeLabel(endDate)}</Text>
+		</Box>
+	)
+}
 
-			// Calculate position, accounting for timestamp width
-			let position;
-			if (i === 0) {
-				// First timestamp: left-aligned at start
-				position = 0;
-			} else if (i === totalTimestamps - 1) {
-				// Last timestamp: right-aligned at end
-				position = sparklineWidth - timestampWidth;
-			} else {
-				// Middle timestamps: centered at their fractional position
-				position = Math.round(fraction * (sparklineWidth - 1)) - Math.floor(timestampWidth / 2);
-			}
-
-			timeLabels.push({ time: timeStr, position: Math.max(0, position) });
-		}
-	}
+export default function Summary({ session, width = 80 }) {
 
 	return (
 		<Box
 			flexDirection="column"
 		>
 			<Box>
-				<TitledBox
-					borderStyle="single"
-					borderColor="gray"
-					titles={['Info']}
-					padding={1}
+				<SessionInfo
+					session={session}
 					width={72}
-					height={9}
-				>
-					<Box
-						flexDirection="column"
-						// paddingLeft={1}
-						// paddingRight={1}
-					>
-						<Box>
-							<Text dimColor>Project: </Text>
-							<Text>{project || 'N/A'}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Created At: </Text>
-							<Text>{sessionMetadata?.created ? new Date(sessionMetadata.created).toLocaleString() : 'N/A'}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Last Modified: </Text>
-							<Text>{sessionMetadata?.modified ? new Date(sessionMetadata.modified).toLocaleString() : 'N/A'}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Logs: </Text>
-							<Text>{(sessionMetadata?.logCount || logs.length).toLocaleString()}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Duration: </Text>
-							<Text>{duration}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Usage: </Text>
-							<Text>{totalUsage.toLocaleString()} tokens</Text>
-						</Box>
-						{/* <Box>
-							<Text dimColor>Tool Calls:</Text>
-							<Text>{toolCalls}</Text>
-						</Box>
-						<Box>
-							<Text dimColor>Agent Calls:</Text>
-							<Text>{agentCalls}</Text>
-						</Box> */}
-					</Box>
-				</TitledBox>
+				/>
 
 				<TokenDistribution
-					data={chartData}
-					totalUsage={totalUsage}
-					maxWidth={width - 72 - 2}
+					session={session}
+					width={width - 72 - 2}
 				/>
 			</Box>
 
-
-			<ActivityChart
-				activityByType={activityByType}
-				activityStats={activityStats}
-				timeLabels={timeLabels}
+			<TokenSparklines
+				session={session}
+				width={120}
 			/>
 		</Box>
 	);

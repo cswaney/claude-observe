@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import React from 'react';
 import { render, Box, Text } from 'ink';
-import { BarChart, Histogram } from './source/components/Chart.js';
+import { BarChart, Histogram } from './Chart.js';
 
 function ChartDemo() {
 	// Example 1: Simple BarChart with predefined data

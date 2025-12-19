@@ -2,69 +2,6 @@ import React from 'react';
 import { Box, Text } from 'ink';
 
 /**
- * A textual bar chart component for Ink.js
- *
- * Renders data as a vertical bar chart using Unicode block characters.
- * Data values should be integers from 0 to height * nbars, where nbars is 8 (the number of block characters).
- *
- * @param {Object} props
- * @param {number[]} props.data - Array of integer values to plot
- * @param {number} props.height - Number of rows to use for the chart
- * @param {string} [props.color] - Optional color for the bars
- */
-export function BarChart({ data, height, color }) {
-	const bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-	const nbars = bars.length;
-
-	const renderRow = (rowIndex, data) => {
-		const minY = rowIndex * nbars;
-		const maxY = (rowIndex + 1) * nbars;
-
-		return data.map((value, idx) => {
-			let char;
-			if (value >= maxY) {
-				char = bars[nbars - 1];
-			} else if (value > minY) {
-				char = bars[(value % nbars) - 1];
-			} else if (rowIndex === 0) {
-				// Use the shortest bar for zero values on the bottom row
-				char = bars[0];
-			} else {
-				char = ' ';
-			}
-			return char;
-		}).join('');
-	};
-
-	const rows = [];
-	for (let rowIndex = height; rowIndex >= 0; rowIndex--) {
-		rows.push(
-			<Text key={rowIndex} color={color}>
-				{renderRow(rowIndex, data)}
-			</Text>
-		);
-	}
-
-	return (
-		<Box flexDirection="column">
-			{rows}
-		</Box>
-	);
-}
-
-/**
- * Helper function to create evenly spaced range
- * @param {number} start - Start value
- * @param {number} stop - Stop value
- * @param {number} n - Number of intervals
- * @returns {number[]} Array of n+1 evenly spaced values
- */
-function xrange(start, stop, n) {
-	const step = (stop - start) / n;
-	return Array.from({ length: n + 1 }, (_, i) => start + step * i);
-}
-
-/**
  * A textual histogram component for Ink.js
  *
  * Creates a histogram representing y-weighted counts of x values.
@@ -126,26 +63,51 @@ export function Histogram({ x, y, width, height, xMin, xMax, yMin, yMax, color }
 }
 
 /**
- * Example usage component demonstrating the histogram
+ * A textual bar chart component for Ink.js
+ *
+ * Renders data as a vertical bar chart using Unicode block characters.
+ * Data values should be integers from 0 to height * nbars, where nbars is 8 (the number of block characters).
+ *
+ * @param {Object} props
+ * @param {number[]} props.data - Array of integer values to plot
+ * @param {number} props.height - Number of rows to use for the chart
+ * @param {string} [props.color] - Optional color for the bars
  */
-export function HistogramExample() {
-	// Generate random data
-	const n = 10000;
-	const x = Array.from({ length: n }, () => Math.random());
-	const y = Array.from({ length: n }, () => 1);
+function BarChart({ data, height, color }) {
+	const bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+	const nbars = bars.length;
+
+	const renderRow = (rowIndex, data) => {
+		const minY = rowIndex * nbars;
+		const maxY = (rowIndex + 1) * nbars;
+
+		return data.map((value, idx) => {
+			let char;
+			if (value >= maxY) {
+				char = bars[nbars - 1];
+			} else if (value > minY) {
+				char = bars[(value % nbars) - 1];
+			} else if (rowIndex === 0) {
+				char = bars[0];
+			} else {
+				char = ' ';
+			}
+			return char;
+		}).join('');
+	};
+
+	const rows = [];
+	for (let rowIndex = height; rowIndex >= 0; rowIndex--) {
+		rows.push(
+			<Text key={rowIndex} color={color}>
+				{renderRow(rowIndex, data)}
+			</Text>
+		);
+	}
 
 	return (
 		<Box flexDirection="column">
-			<Text>Random Distribution Histogram:</Text>
-			<Histogram
-				x={x}
-				y={y}
-				width={20}
-				height={10}
-				xMin={0.0}
-				xMax={1.0}
-				color="cyan"
-			/>
+			{rows}
 		</Box>
 	);
 }

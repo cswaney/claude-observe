@@ -21,8 +21,64 @@ export default function Browser({
 	selectedIndex = 0,
 	filterMode = false,
 	filterInput = '',
-	filterQuery = ''
+	filterQuery = '',
+	browserHeight = 15
 }) {
+	// Calculate visible window of sessions to render based on available height
+	// Try to keep the selected session centered in the viewport
+	const TITLED_BOX_BORDERS = 2; // Top and bottom borders
+	const TITLED_BOX_PADDING = 2; // Top and bottom padding
+	const TABLE_HEADER_ROWS = 2; // Column titles + separator line
+	const availableLines = browserHeight - TITLED_BOX_BORDERS - TITLED_BOX_PADDING - TABLE_HEADER_ROWS;
+	const targetCenterLines = Math.floor(availableLines / 2);
+
+	let startIndex = 0;
+	let endIndex = 0;
+
+	// Each session item takes 1 line
+	const sessionItemHeight = 1;
+
+	// Count total lines above selected session
+	const linesAboveSelected = selectedIndex * sessionItemHeight;
+
+	// Count total lines below selected session
+	const linesBelowSelected = (sessions.length - selectedIndex - 1) * sessionItemHeight;
+
+	// Determine where to start the viewport
+	if (linesAboveSelected < targetCenterLines) {
+		// Near the top - not enough content above to center, so start from beginning
+		startIndex = 0;
+	} else if (linesBelowSelected < targetCenterLines) {
+		// Near the bottom - not enough content below to center, so work backward from end
+		// Fill backward until we run out of space or sessions
+		let lines = 0;
+		let idx = sessions.length;
+		while (idx > 0 && lines < availableLines) {
+			if (lines + sessionItemHeight > availableLines) break;
+			lines += sessionItemHeight;
+			idx--;
+		}
+		startIndex = idx;
+	} else {
+		// Enough content on both sides - center the selected session
+		startIndex = selectedIndex - targetCenterLines;
+	}
+
+	// Fill viewport forward from startIndex
+	let lines = 0;
+	endIndex = startIndex;
+	while (endIndex < sessions.length && lines < availableLines) {
+		if (lines + sessionItemHeight > availableLines) break;
+		lines += sessionItemHeight;
+		endIndex++;
+	}
+
+	const visibleSessions = sessions.slice(startIndex, endIndex);
+
+	// Show indicators when there are more sessions above/below
+	const hasSessionsAbove = startIndex > 0;
+	const hasSessionsBelow = endIndex < sessions.length;
+
 	return (
 		<Box flexDirection="column" width={width}>
 			<Box flexDirection="column">
@@ -40,6 +96,7 @@ export default function Browser({
 					borderColor="gray"
 					padding={1}
 					titles={['Sessions']}
+					height={browserHeight}
 				>
 					{sessions.length === 0 ? (
 						<Text dimColor>No sessions found in ~/.claude/projects</Text>
@@ -60,7 +117,16 @@ export default function Browser({
 								<Text dimColor>{'─'.repeat(width - 6)}</Text>
 							</Box>
 
-							{sessions.map((item, index) => {
+							{hasSessionsAbove && (
+								<Box>
+									<Text dimColor>
+										{' '.repeat(1)}... {startIndex} more above ...
+									</Text>
+								</Box>
+							)}
+
+							{visibleSessions.map((item, visibleIndex) => {
+								const index = startIndex + visibleIndex;
 								const isSelected = index === selectedIndex;
 								const selectedProject = sessions[selectedIndex]?.project || sessions[selectedIndex]?.projectName;
 								const itemProject = item.project || item.projectName;
@@ -99,6 +165,14 @@ export default function Browser({
 									</Box>
 								);
 							})}
+
+							{hasSessionsBelow && (
+								<Box>
+									<Text dimColor>
+										{' '.repeat(1)}... {sessions.length - endIndex} more below ...
+									</Text>
+								</Box>
+							)}
 						</Box>
 					)}
 				</TitledBox>
@@ -126,7 +200,7 @@ export default function Browser({
 			{/* Help text */}
 			<Box justifyContent="center">
 				<Text dimColor>
-					↑/↓: Navigate | Enter/→: Select Session | /: Filter
+					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter/→: Select Session | /: Filter
 				</Text>
 			</Box>
 		</Box>

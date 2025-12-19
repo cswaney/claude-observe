@@ -494,7 +494,8 @@ export default function App({sessionPath = null}) {
 				}
 			} else if (key.return) {
 				const selectedLog = filteredLogs[selectedIndex];
-				if (selectedLog?.content) {
+				// Don't allow expansion for tool_result items (content format varies by tool)
+				if (selectedLog?.content && selectedLog.type !== 'tool_result') {
 					setCollapsedStates(prev => ({
 						...prev,
 						[selectedLog.id]: !prev[selectedLog.id],

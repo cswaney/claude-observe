@@ -34,6 +34,15 @@ export default function LogsList({
 		const isSelected = index === selectedIndex;
 		const isCollapsed = collapsedStates[log.id];
 
+		// Ensure content is always a string
+		const getLogContent = (log) => {
+			if (!log.content) return '';
+			if (typeof log.content === 'string') return log.content;
+			return JSON.stringify(log.content, null, 2);
+		};
+
+		const logContent = getLogContent(log);
+
 		// Update active agents tracking
 		if (log.type === 'subagent' && !log.isLast) {
 			if (!agentColorMap.has(log.agentId)) {
@@ -126,7 +135,7 @@ export default function LogsList({
 
 			return (
 				<Box>
-					<Text bold={isSelected} color={agentData.color}>
+					<Text bold={isSelected} color={agentData.color} wrap="truncate">
 						<Text bold={isSelected} dimColor={!isSelected}>
 							{timestamp}
 						</Text>
@@ -161,7 +170,7 @@ export default function LogsList({
 				<Box key={log.id} flexDirection="column">
 					{/* Subagent start arrow row */}
 					<Box>
-						<Text bold={isSelected} color={agent?.color}>
+						<Text bold={isSelected} color={agent?.color} wrap="truncate">
 							<Text bold={isSelected} dimColor={!isSelected}>
 								[{formattedTime}]
 							</Text>{' '}
@@ -172,11 +181,11 @@ export default function LogsList({
 					</Box>
 
 					{/* Content Row (if expanded) */}
-					{!isCollapsed && log.content && (
+					{!isCollapsed && logContent && (
 						<Box>
-							<Text dimColor> "{log.content}"</Text>
+							<Text dimColor wrap="truncate"> "{logContent}"</Text>
 							{renderVerticalBarsSuffix(
-								4 + 1 + log.content.length + 1,
+								4 + 1 + logContent.length + 1,
 								`${log.id}-start-content`,
 							)}
 						</Box>
@@ -201,35 +210,41 @@ export default function LogsList({
 		let selectIconAfter = '⌄ ';
 
 		// Generate preview for title line (only when collapsed)
+		// Don't show preview for tool_result as content format varies by tool
 		const formattedTime = formatTimestamp(log.timestamp);
-		const firstLine = log.content?.split('\n')[0] || '';
-		// Calculate available width for preview
-		// Format: "[HH:MM:SS] > displayTitle preview"
-		const prefixLength =
-			1 + formattedTime.length + 2 + 2 + displayTitle.length + 1; // brackets, spaces, arrow
-		const availableWidth = Math.max(0, width - prefixLength - 12); // -7 buffer for borders/padding
-		const preview =
-			firstLine.length > availableWidth
-				? firstLine.substring(0, availableWidth) + '...'
-				: firstLine;
-		const previewText = isCollapsed && preview ? ` ${preview}` : '';
+		let previewText = '';
+
+		if (log.type !== 'tool_result') {
+			const firstLine = logContent?.split('\n')[0] || '';
+			// Calculate available width for preview
+			// Format: "[HH:MM:SS] > displayTitle preview"
+			const prefixLength =
+				1 + formattedTime.length + 2 + 2 + displayTitle.length + 1; // brackets, spaces, arrow
+			const availableWidth = Math.max(0, width - prefixLength - 12); // -7 buffer for borders/padding
+			const preview =
+				firstLine.length > availableWidth
+					? firstLine.substring(0, availableWidth) + '...'
+					: firstLine;
+			previewText = isCollapsed && preview ? ` ${preview}` : '';
+		}
 
 		// Calculate indentation for expanded content to align with title
 		// Format: "[HH:MM:SS] > title"
 		const contentIndent = ' '.repeat(1 + formattedTime.length + 2 + 2); // align with title
 
-		const hasExpandableContent = Boolean(log.content);
+		// Don't allow expansion for tool_result items (content format varies by tool)
+		const hasExpandableContent = log.type !== 'tool_result' && Boolean(logContent);
 
 		return (
 			<Box key={log.id} flexDirection="column">
 				{/* Title Row */}
 				<Box>
-					<Text bold={isSelected}>
+					<Text bold={isSelected} wrap="truncate">
 						<Text dimColor={!isSelected}>[{formattedTime}] </Text>
 						<Text dimColor={!isSelected}>
-							{isCollapsed ? selectIconBefore : selectIconAfter}
+							{hasExpandableContent ? (isCollapsed ? selectIconBefore : selectIconAfter) : '  '}
 						</Text>
-						<Text color={displayColor}>{displayTitle}:</Text>
+						<Text color={displayColor}>{displayTitle}{hasExpandableContent ? ':' : ''}</Text>
 						<Text dimColor={!isSelected}>{previewText}</Text>
 					</Text>
 					{renderVerticalBarsSuffix(
@@ -247,8 +262,8 @@ export default function LogsList({
 				{!isCollapsed && hasExpandableContent && (
 					<Box flexDirection="column">
 						{(() => {
-							const lines = (log.content || '').split('\n').slice(0, 5);
-							const hasMore = (log.content || '').split('\n').length > 5;
+							const lines = logContent.split('\n').slice(0, 5);
+							const hasMore = logContent.split('\n').length > 5;
 							const maxLineLength = Math.max(
 								0,
 								width - contentIndent.length - 7,
@@ -260,8 +275,8 @@ export default function LogsList({
 											? line.substring(0, maxLineLength) + '...'
 											: line;
 									return (
-										<Box key={`${log.id}`}>
-											<Text dimColor>
+										<Box key={`${log.id}-content-${idx}`}>
+											<Text dimColor wrap="truncate">
 												{contentIndent}
 												{displayLine}
 											</Text>
@@ -297,24 +312,26 @@ export default function LogsList({
 			borderStyle="single"
 			borderColor="gray"
 			padding={1}
+			paddingBottom={0}
 			// marginTop={1}
 			key={listViewKey}
 			titles={['Logs']}
 		>
 			<Box flexDirection="column">
+				{/* Overflow indicator - items above */}
 				{hasLogsAbove && (
-					<Box>
-						<Text dimColor>
-							{'           '}  ... {startIndex} more above ...
-						</Text>
+					<Box justifyContent="center">
+						<Text dimColor>... {startIndex} {startIndex === 1 ? 'log' : 'logs'} above</Text>
 					</Box>
 				)}
+
+				{/* Visible logs */}
 				{logs.map((log, index) => renderLog(log, index))}
+
+				{/* Overflow indicator - items below */}
 				{hasLogsBelow && (
-					<Box>
-						<Text dimColor>
-							{'           '}  ... {filteredLogs.length - endIndex} more below ...
-						</Text>
+					<Box justifyContent="center">
+						<Text dimColor>... {filteredLogs.length - endIndex} {filteredLogs.length - endIndex === 1 ? 'log' : 'logs'} below</Text>
 					</Box>
 				)}
 			</Box>

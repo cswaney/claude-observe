@@ -140,10 +140,17 @@ export default function Details({ log, width, contentHeight = 30 }) {
 	let isJSON = false;
 
 	if (log.type === 'tool_use') {
-		if (log.toolInput) {
-			contentLines = JSON.stringify(log.toolInput, null, 2).split('\n');
+		const content = log.raw.message?.content?.[0].input;
+		if (typeof content === 'string') {
+			contentLines = content.split('\n');
+		} else {
+			contentLines = JSON.stringify(content, null, 2).split('\n');
 			isJSON = true;
 		}
+		// if (log.toolInput) {
+		// 	contentLines = JSON.stringify(log.toolInput, null, 2).split('\n');
+		// 	isJSON = true;
+		// }
 	} else if (log.type === "tool_result") {
 		if (log.toolUseResult) {
 			if (typeof log.toolUseResult === 'string') {

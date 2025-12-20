@@ -3,6 +3,10 @@
 ## Dev
 
 - [ ] Switch to Jest + Testing Library [React]
+- [ ] Update README
+- [ ] Add CI/CD
+- [ ] Add pre-commit
+- [ ] Ship as binary?
 
 ## Bugs
 

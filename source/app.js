@@ -541,6 +541,46 @@ export default function App({ sessionPath = null }) {
                 setViewMode('detail');
                 setDetailScrollOffset(0);
                 return;
+            } else if (key.leftArrow) {
+                // Left arrow: Return to Browser
+                // If we're in an agent session, go back to parent session first
+                if (sessionData?.parentSessionId && currentSessionDir) {
+                    const parentSessionPath = path.join(
+                        currentSessionDir,
+                        `${sessionData.parentSessionId}.jsonl`,
+                    );
+                    if (fs.existsSync(parentSessionPath)) {
+                        setCurrentSessionPath(parentSessionPath);
+                        // Restore saved selectedIndex if available
+                        if (savedSelectedIndex !== null) {
+                            setSelectedIndex(savedSelectedIndex);
+                            setSavedSelectedIndex(null);
+                        } else {
+                            setSelectedIndex(0);
+                        }
+                        return;
+                    }
+                }
+
+                // Otherwise go back to browser
+                setViewMode('browser');
+                setSavedFilters(null);
+                setSavedSelectedIndex(null);
+                if (lastSelectedSession) {
+                    const index = browserItems.findIndex(
+                        session => session.path === lastSelectedSession,
+                    );
+                    if (index !== -1) {
+                        setSelectedIndex(index);
+                    } else {
+                        setSelectedIndex(0);
+                    }
+                } else {
+                    setSelectedIndex(0);
+                }
+                setCurrentSessionPath(null);
+                setSessionData(null);
+                return;
             } else if (key.escape) {
                 // If we're in an agent session, go back to parent session
                 if (sessionData?.parentSessionId && currentSessionDir) {
@@ -599,23 +639,46 @@ export default function App({ sessionPath = null }) {
                 const log = filteredLogs[selectedIndex];
                 if (log && log.content) {
                     const detailAvailableHeight = 30;
-                    const contentLines = log.content.split('\n');
+                    const contentLines = log.content?.split('\n') || 0;
                     const totalLines = contentLines.length;
                     const maxOffset = Math.max(0, totalLines - detailAvailableHeight);
                     setDetailScrollOffset(maxOffset);
                 }
-            } else if (key.leftArrow) {
+            } else if (key.leftArrow && key.shift) {
+                // Shift+Left: Previous log
                 if (selectedIndex > 0) {
                     setSelectedIndex(prev => prev - 1);
                     setDetailScrollOffset(0);
                 }
-            } else if (key.rightArrow) {
+            } else if (key.rightArrow && key.shift) {
+                // Shift+Right: Next log
                 if (selectedIndex < filteredLogs.length - 1) {
                     setSelectedIndex(prev => prev + 1);
                     setDetailScrollOffset(0);
                 }
-            } else if (key.escape) {
+            } else if (key.leftArrow) {
+                // Left: Return to Session view
                 setViewMode('session');
+                return;
+            } else if (key.escape) {
+                // Esc: Always return to Browser
+                setViewMode('browser');
+                setSavedFilters(null);
+                setSavedSelectedIndex(null);
+                if (lastSelectedSession) {
+                    const index = browserItems.findIndex(
+                        session => session.path === lastSelectedSession,
+                    );
+                    if (index !== -1) {
+                        setSelectedIndex(index);
+                    } else {
+                        setSelectedIndex(0);
+                    }
+                } else {
+                    setSelectedIndex(0);
+                }
+                setCurrentSessionPath(null);
+                setSessionData(null);
                 return;
             }
 

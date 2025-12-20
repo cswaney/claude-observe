@@ -24,6 +24,10 @@ export default function Session({
 		// Safety check for undefined logs
 		if (!log) return 1;
 
+		if (log.type === 'tool_result') {
+			return 1; // tool result not displaying preview for now
+		}
+
 		if (log.type === 'subagent' && log.isLast) {
 			// Agent end: 1 line
 			return 1;
@@ -38,7 +42,7 @@ export default function Session({
 		const isCollapsed = collapsedStates[log.id];
 		if (isCollapsed || !log.content) return 1;
 
-		const contentLines = log.content.split('\n');
+		const contentLines = log.content?.split('\n') || 0;
 		const displayedLines = Math.min(contentLines.length, 5);
 		const hasMore = contentLines.length > 5;
 		return 1 + displayedLines + (hasMore ? 1 : 0);
@@ -127,8 +131,7 @@ export default function Session({
 				marginTop={searchMode || activeSearch ? 0 : 1}
 			>
 				<Text dimColor>
-					↑/↓: Navigate | d: Down 10 | u: Up 10 | t: Top | b: Bottom | Enter:
-					Expand/Collapse | →: Detail | /: Search | a/c: All | 1-5: Filter
+					↑/↓: Navigate logs | →: Detail | ←/Esc: Browser | Enter: Expand/Collapse | u/d/t/b: Jump | /: Search | a/c: All | 1-5: Filter
 					{filterText} | {selectedIndex + 1}/{filteredLogs.length}
 				</Text>
 			</Box>

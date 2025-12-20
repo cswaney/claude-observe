@@ -167,7 +167,7 @@ export default function Browser({
 			{/* Help text */}
 			<Box justifyContent="center">
 				<Text dimColor>
-					↑/↓: Navigate | Enter/→: Select Session | /: Filter
+					↑/↓: Navigate sessions | →/Enter: Open session | /: Filter | u/d/t/b: Jump
 				</Text>
 			</Box>
 		</Box>

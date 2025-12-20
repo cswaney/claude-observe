@@ -480,17 +480,7 @@ export default function Details({ log, width, contentHeight = 30 }) {
 			{/* Navigation */}
 			<Box justifyContent="center" marginTop={1}>
 				<Text dimColor>
-					Esc: Back | ←/→: Prev/Next Log (offset: {scrollOffset}/{viewport.maxScrollOffset}, lines:{' '}
-					{viewport.startLineIndex}-{viewport.endLineIndex}/{viewport.totalLines - 1})
-				</Text>
-			</Box>
-
-			{/* Debug */}
-			<Box justifyContent="center" marginTop={1}>
-				<Text dimColor>
-					[DEBUG] offset: {scrollOffset}, visible: {viewport.visibleLines.length},
-					rowsAbove: {viewport.rowsAbove}, rowsBelow: {viewport.rowsBelow},
-					hasAbove: {String(viewport.hasLinesAbove)}, hasBelow: {String(viewport.hasLinesBelow)}
+					↑/↓: Scroll | ←: Session | Esc: Browser | Shift+←/→: Prev/Next log | u/d/t/b: Jump | Line {viewport.startLineIndex}-{viewport.endLineIndex}/{viewport.totalLines - 1}
 				</Text>
 			</Box>
 		</Box>

@@ -8,11 +8,8 @@ await esbuild.build({
 	target: 'node16',
 	outfile: 'dist/test-histogram.js',
 	loader: {
-		'.js': 'jsx',  // Enable JSX in .js files
+		'.js': 'jsx', // Enable JSX in .js files
 	},
-	external: [
-		'react',
-		'ink',
-	],
+	external: ['react', 'ink'],
 	logLevel: 'info',
 });

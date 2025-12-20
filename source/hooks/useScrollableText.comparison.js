@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import React from 'react';
-import { render, Box, Text } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { useScrollableText } from './useScrollableText.js';
+import {render, Box, Text} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {useScrollableText} from './useScrollableText.js';
 
 // Test content with a very long line
 const testContent = `Line 1: Short
@@ -38,7 +38,9 @@ function ComparisonDemo() {
 			<Text bold color="cyan">
 				Wrapping Comparison Demo
 			</Text>
-			<Text dimColor>Width: {width} | Height: {height}</Text>
+			<Text dimColor>
+				Width: {width} | Height: {height}
+			</Text>
 			<Text> </Text>
 
 			{/* Side by side comparison */}
@@ -55,8 +57,7 @@ function ComparisonDemo() {
 					>
 						<Text dimColor>
 							Visible lines: {withWrapping.startLineIndex}-
-							{withWrapping.endLineIndex} of{' '}
-							{withWrapping.totalLines - 1}
+							{withWrapping.endLineIndex} of {withWrapping.totalLines - 1}
 						</Text>
 						<Text dimColor>
 							Rows above: {withWrapping.rowsAbove} | Below:{' '}
@@ -65,9 +66,7 @@ function ComparisonDemo() {
 						<Text> </Text>
 						{withWrapping.visibleLines.map((line, idx) => (
 							<Box key={idx}>
-								<Text dimColor>
-									[{withWrapping.startLineIndex + idx}]
-								</Text>
+								<Text dimColor>[{withWrapping.startLineIndex + idx}]</Text>
 								<Text> {line.substring(0, 45)}...</Text>
 							</Box>
 						))}
@@ -86,8 +85,8 @@ function ComparisonDemo() {
 					>
 						<Text dimColor>
 							Visible lines: {scrollOffset}-
-							{scrollOffset + withoutWrapping.visibleLines.length - 1}{' '}
-							of {withoutWrapping.totalLines - 1}
+							{scrollOffset + withoutWrapping.visibleLines.length - 1} of{' '}
+							{withoutWrapping.totalLines - 1}
 						</Text>
 						<Text dimColor color="red">
 							⚠️ Assumes 1 line = 1 row (incorrect!)
@@ -107,24 +106,19 @@ function ComparisonDemo() {
 			<Box marginTop={1} flexDirection="column">
 				<Text bold>Key Differences:</Text>
 				<Text>
-					• <Text color="green">With wrapping:</Text> Correctly
-					calculates that line 2 takes ~3 rows
+					• <Text color="green">With wrapping:</Text> Correctly calculates that
+					line 2 takes ~3 rows
+				</Text>
+				<Text>Shows fewer lines but accurately fills viewport height</Text>
+				<Text>
+					• <Text color="red">Without wrapping:</Text> Assumes all lines take 1
+					row
 				</Text>
 				<Text>
-					  Shows fewer lines but accurately fills viewport height
-				</Text>
-				<Text>
-					• <Text color="red">Without wrapping:</Text> Assumes all lines
-					take 1 row
-				</Text>
-				<Text>
-					  Would overflow viewport when long lines wrap, causing visual
-					glitches
+					Would overflow viewport when long lines wrap, causing visual glitches
 				</Text>
 				<Text> </Text>
-				<Text dimColor>
-					Line lengths: [13, 142, 18, 10, 153] chars
-				</Text>
+				<Text dimColor>Line lengths: [13, 142, 18, 10, 153] chars</Text>
 				<Text dimColor>
 					Actual row heights at width=60: [1, 3, 1, 1, 3] rows
 				</Text>

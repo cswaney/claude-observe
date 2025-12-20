@@ -10,9 +10,6 @@ await esbuild.build({
 	loader: {
 		'.js': 'jsx',
 	},
-	external: [
-		'react',
-		'ink',
-	],
+	external: ['react', 'ink'],
 	logLevel: 'info',
 });

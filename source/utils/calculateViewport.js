@@ -60,7 +60,10 @@ export function calculateViewport({
 	}
 
 	// Ensure selected index is valid
-	const validSelectedIndex = Math.max(0, Math.min(selectedIndex, items.length - 1));
+	const validSelectedIndex = Math.max(
+		0,
+		Math.min(selectedIndex, items.length - 1),
+	);
 
 	// Calculate selected item position and height
 	const selectedHeight = itemHeights[validSelectedIndex];
@@ -161,13 +164,19 @@ export function calculateViewport({
 			viewportHeight = itemHeights[validSelectedIndex];
 
 			// Expand downwards first
-			while (endIndex < items.length - 1 && viewportHeight + itemHeights[endIndex + 1] <= height) {
+			while (
+				endIndex < items.length - 1 &&
+				viewportHeight + itemHeights[endIndex + 1] <= height
+			) {
 				endIndex++;
 				viewportHeight += itemHeights[endIndex];
 			}
 
 			// Then expand upwards if there's room
-			while (startIndex > 0 && viewportHeight + itemHeights[startIndex - 1] <= height) {
+			while (
+				startIndex > 0 &&
+				viewportHeight + itemHeights[startIndex - 1] <= height
+			) {
 				startIndex--;
 				viewportHeight += itemHeights[startIndex];
 			}

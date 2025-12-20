@@ -35,7 +35,7 @@ export default function LogsList({
 		const isCollapsed = collapsedStates[log.id];
 
 		// Ensure content is always a string
-		const getLogContent = (log) => {
+		const getLogContent = log => {
 			if (!log.content) return '';
 			if (typeof log.content === 'string') return log.content;
 			return JSON.stringify(log.content, null, 2);
@@ -44,9 +44,14 @@ export default function LogsList({
 		const logContent = getLogContent(log);
 
 		// Determine row color based on log type (matching summary charts)
-		const getRowColor = (log) => {
+		const getRowColor = log => {
 			if (log.type === 'assistant') return '#2ecc71'; // green
-			if (log.type === 'tool' || log.type === 'tool_use' || log.type === 'tool_result') return TOOL_COLOR;
+			if (
+				log.type === 'tool' ||
+				log.type === 'tool_use' ||
+				log.type === 'tool_result'
+			)
+				return TOOL_COLOR;
 			if (log.type === 'thinking') return THINKING_COLOR;
 			return null; // user and other types have no color
 		};
@@ -193,7 +198,10 @@ export default function LogsList({
 					{/* Content Row (if expanded) */}
 					{!isCollapsed && logContent && (
 						<Box>
-							<Text dimColor color={agent?.color}> "{logContent}"</Text>
+							<Text dimColor color={agent?.color}>
+								{' '}
+								"{logContent}"
+							</Text>
 							{renderVerticalBarsSuffix(
 								4 + 1 + logContent.length + 1,
 								`${log.id}-start-content`,
@@ -235,7 +243,8 @@ export default function LogsList({
 		const contentIndent = ' '.repeat(1 + formattedTime.length + 2 + 2); // align with title
 
 		// Don't allow expansion for tool_result items (content format varies by tool)
-		const hasExpandableContent = log.type !== 'tool_result' && Boolean(logContent);
+		const hasExpandableContent =
+			log.type !== 'tool_result' && Boolean(logContent);
 
 		return (
 			<Box key={log.id} flexDirection="column">
@@ -244,10 +253,19 @@ export default function LogsList({
 					<Text bold={isSelected} color={displayColor}>
 						<Text dimColor={!isSelected}>[{formattedTime}] </Text>
 						<Text dimColor={!isSelected}>
-							{hasExpandableContent ? (isCollapsed ? selectIconBefore : selectIconAfter) : '  '}
+							{hasExpandableContent
+								? isCollapsed
+									? selectIconBefore
+									: selectIconAfter
+								: '  '}
 						</Text>
-						<Text>{displayTitle}{hasExpandableContent ? ':' : ''}</Text>
-						<Text wrap="truncate-end" dimColor={!isSelected}>{previewText}</Text>
+						<Text>
+							{displayTitle}
+							{hasExpandableContent ? ':' : ''}
+						</Text>
+						<Text wrap="truncate-end" dimColor={!isSelected}>
+							{previewText}
+						</Text>
 					</Text>
 					{renderVerticalBarsSuffix(
 						2 +
@@ -292,7 +310,9 @@ export default function LogsList({
 								.concat(
 									hasMore ? (
 										<Box key={`${log.id}-more`}>
-											<Text dimColor color={displayColor}>{contentIndent}...</Text>
+											<Text dimColor color={displayColor}>
+												{contentIndent}...
+											</Text>
 											{renderVerticalBarsSuffix(
 												contentIndent.length + 3,
 												`${log.id}-more`,
@@ -323,7 +343,9 @@ export default function LogsList({
 				{/* Overflow indicator - items above */}
 				{hasLogsAbove && (
 					<Box justifyContent="center">
-						<Text dimColor>... {startIndex} {startIndex === 1 ? 'log' : 'logs'} above</Text>
+						<Text dimColor>
+							... {startIndex} {startIndex === 1 ? 'log' : 'logs'} above
+						</Text>
 					</Box>
 				)}
 
@@ -333,7 +355,10 @@ export default function LogsList({
 				{/* Overflow indicator - items below */}
 				{hasLogsBelow && (
 					<Box justifyContent="center">
-						<Text dimColor>... {filteredLogs.length - endIndex} {filteredLogs.length - endIndex === 1 ? 'log' : 'logs'} below</Text>
+						<Text dimColor>
+							... {filteredLogs.length - endIndex}{' '}
+							{filteredLogs.length - endIndex === 1 ? 'log' : 'logs'} below
+						</Text>
 					</Box>
 				)}
 			</Box>

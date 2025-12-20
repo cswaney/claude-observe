@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { calculateViewport } from '../utils/calculateViewport.js';
+import {useMemo} from 'react';
+import {calculateViewport} from '../utils/calculateViewport.js';
 
 /**
  * Custom hook for managing scrollable list viewport
@@ -41,7 +41,7 @@ export function useScrollableList({
 				getItemHeight,
 				centerSelected,
 			}),
-		[items, selectedIndex, height, getItemHeight, centerSelected]
+		[items, selectedIndex, height, getItemHeight, centerSelected],
 	);
 
 	return {

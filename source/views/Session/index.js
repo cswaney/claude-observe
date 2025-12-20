@@ -52,7 +52,8 @@ export default function Session({
 	const TITLED_BOX_BORDERS = 2; // Top and bottom borders
 	const TITLED_BOX_PADDING = 2; // Top and bottom padding
 	const BUFFER_LINES = 2; // Extra buffer to ensure logs render properly
-	const availableLines = logsListHeight - TITLED_BOX_BORDERS - TITLED_BOX_PADDING + BUFFER_LINES;
+	const availableLines =
+		logsListHeight - TITLED_BOX_BORDERS - TITLED_BOX_PADDING + BUFFER_LINES;
 
 	const {
 		visibleItems: visibleLogs,
@@ -131,7 +132,8 @@ export default function Session({
 				marginTop={searchMode || activeSearch ? 0 : 1}
 			>
 				<Text dimColor>
-					↑/↓: Navigate logs | →: Detail | ←/Esc: Browser | Enter: Expand/Collapse | u/d/t/b: Jump | /: Search | a/c: All | 1-5: Filter
+					↑/↓: Navigate logs | →: Detail | ←/Esc: Browser | Enter:
+					Expand/Collapse | u/d/t/b: Jump | /: Search | a/c: All | 1-5: Filter
 					{filterText} | {selectedIndex + 1}/{filteredLogs.length}
 				</Text>
 			</Box>

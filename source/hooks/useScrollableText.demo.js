@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import React, { useState } from 'react';
-import { render, Box, Text, useInput } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { useScrollableText } from './useScrollableText.js';
+import React, {useState} from 'react';
+import {render, Box, Text, useInput} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {useScrollableText} from './useScrollableText.js';
 
 // Sample JSON content with varying line lengths
 const sampleJSON = `{
@@ -41,17 +41,13 @@ function ScrollableTextDemo() {
 	// Handle keyboard input
 	useInput((input, key) => {
 		if (key.upArrow) {
-			setScrollOffset((prev) => Math.max(0, prev - 1));
+			setScrollOffset(prev => Math.max(0, prev - 1));
 		} else if (key.downArrow) {
-			setScrollOffset((prev) =>
-				Math.min(viewport.maxScrollOffset, prev + 1),
-			);
+			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 1));
 		} else if (input === 'u') {
-			setScrollOffset((prev) => Math.max(0, prev - 5));
+			setScrollOffset(prev => Math.max(0, prev - 5));
 		} else if (input === 'd') {
-			setScrollOffset((prev) =>
-				Math.min(viewport.maxScrollOffset, prev + 5),
-			);
+			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 5));
 		} else if (input === 't') {
 			setScrollOffset(0);
 		} else if (input === 'b') {
@@ -67,8 +63,7 @@ function ScrollableTextDemo() {
 				useScrollableText Hook - Interactive Demo
 			</Text>
 			<Text dimColor>
-				Terminal width: {terminalWidth} | Viewport height:{' '}
-				{viewportHeight}
+				Terminal width: {terminalWidth} | Viewport height: {viewportHeight}
 			</Text>
 			<Text> </Text>
 
@@ -84,9 +79,7 @@ function ScrollableTextDemo() {
 				{/* Scroll indicator - above */}
 				{viewport.hasLinesAbove && (
 					<Box height={1}>
-						<Text dimColor>
-							... {viewport.rowsAbove} rows above ...
-						</Text>
+						<Text dimColor>... {viewport.rowsAbove} rows above ...</Text>
 					</Box>
 				)}
 
@@ -94,9 +87,7 @@ function ScrollableTextDemo() {
 				{viewport.visibleLines.map((line, idx) => (
 					<Box key={idx}>
 						<Box width={6}>
-							<Text dimColor>
-								[{viewport.startLineIndex + idx}]
-							</Text>
+							<Text dimColor>[{viewport.startLineIndex + idx}]</Text>
 						</Box>
 						<Text>{line}</Text>
 					</Box>
@@ -105,9 +96,7 @@ function ScrollableTextDemo() {
 				{/* Scroll indicator - below */}
 				{viewport.hasLinesBelow && (
 					<Box height={1}>
-						<Text dimColor>
-							... {viewport.rowsBelow} rows below ...
-						</Text>
+						<Text dimColor>... {viewport.rowsBelow} rows below ...</Text>
 					</Box>
 				)}
 			</TitledBox>
@@ -117,16 +106,15 @@ function ScrollableTextDemo() {
 				<Text dimColor>
 					Scroll: {scrollOffset}/{viewport.maxScrollOffset} | Lines:{' '}
 					{viewport.startLineIndex}-{viewport.endLineIndex}/
-					{viewport.totalLines - 1} | Above: {viewport.rowsAbove} |
-					Below: {viewport.rowsBelow}
+					{viewport.totalLines - 1} | Above: {viewport.rowsAbove} | Below:{' '}
+					{viewport.rowsBelow}
 				</Text>
 			</Box>
 
 			{/* Controls */}
 			<Box marginTop={1}>
 				<Text dimColor>
-					↑/↓: Scroll line | u/d: Scroll page | t/b: Top/Bottom | q:
-					Quit
+					↑/↓: Scroll line | u/d: Scroll page | t/b: Top/Bottom | q: Quit
 				</Text>
 			</Box>
 		</Box>

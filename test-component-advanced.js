@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import React, { useState, useEffect } from 'react';
-import { render, Box, Text, useInput, useApp } from 'ink';
+import React, {useState, useEffect} from 'react';
+import {render, Box, Text, useInput, useApp} from 'ink';
 
 /**
  * Advanced Test Harness for Ink Components
@@ -21,9 +21,9 @@ import { render, Box, Text, useInput, useApp } from 'ink';
 // PASTE YOUR TEST COMPONENT HERE
 // ============================================================================
 
-import { TitledBox } from '@mishieck/ink-titled-box';
+import {TitledBox} from '@mishieck/ink-titled-box';
 
-function ExampleComponent({ title = 'Example', width = 40, color = 'cyan' }) {
+function ExampleComponent({title = 'Example', width = 40, color = 'cyan'}) {
 	return (
 		<TitledBox
 			borderStyle="single"
@@ -49,15 +49,15 @@ const TEST_CASES = [
 	{
 		name: 'Default Props',
 		description: 'Component with default props',
-		props: {}
+		props: {},
 	},
 	{
 		name: 'Custom Title',
 		description: 'Component with custom title',
 		props: {
 			title: 'My Custom Title',
-			color: 'green'
-		}
+			color: 'green',
+		},
 	},
 	{
 		name: 'Wide Layout',
@@ -65,8 +65,8 @@ const TEST_CASES = [
 		props: {
 			title: 'Wide Component',
 			width: 60,
-			color: 'magenta'
-		}
+			color: 'magenta',
+		},
 	},
 	{
 		name: 'Narrow Layout',
@@ -74,9 +74,9 @@ const TEST_CASES = [
 		props: {
 			title: 'Narrow',
 			width: 25,
-			color: 'yellow'
-		}
-	}
+			color: 'yellow',
+		},
+	},
 ];
 
 // ============================================================================
@@ -85,7 +85,7 @@ const TEST_CASES = [
 
 function TestHarness() {
 	const [currentTestIndex, setCurrentTestIndex] = useState(0);
-	const { exit } = useApp();
+	const {exit} = useApp();
 
 	const currentTest = TEST_CASES[currentTestIndex];
 
@@ -93,9 +93,11 @@ function TestHarness() {
 		if (input === 'q' || key.escape) {
 			exit();
 		} else if (input === 'n' || key.rightArrow) {
-			setCurrentTestIndex((prev) => (prev + 1) % TEST_CASES.length);
+			setCurrentTestIndex(prev => (prev + 1) % TEST_CASES.length);
 		} else if (input === 'p' || key.leftArrow) {
-			setCurrentTestIndex((prev) => (prev - 1 + TEST_CASES.length) % TEST_CASES.length);
+			setCurrentTestIndex(
+				prev => (prev - 1 + TEST_CASES.length) % TEST_CASES.length,
+			);
 		}
 	});
 
@@ -104,10 +106,13 @@ function TestHarness() {
 			{/* Header */}
 			<Box borderStyle="double" borderColor="blue" padding={1} marginBottom={1}>
 				<Box flexDirection="column">
-					<Text bold color="cyan">Ink Component Test Harness</Text>
+					<Text bold color="cyan">
+						Ink Component Test Harness
+					</Text>
 					<Box marginTop={1}>
 						<Text dimColor>
-							Test {currentTestIndex + 1} of {TEST_CASES.length} | Press 'n' for next, 'p' for previous, 'q' to quit
+							Test {currentTestIndex + 1} of {TEST_CASES.length} | Press 'n' for
+							next, 'p' for previous, 'q' to quit
 						</Text>
 					</Box>
 				</Box>
@@ -116,11 +121,15 @@ function TestHarness() {
 			{/* Test Case Info */}
 			<Box flexDirection="column" marginBottom={1}>
 				<Box>
-					<Text color="yellow" bold>Test: </Text>
+					<Text color="yellow" bold>
+						Test:{' '}
+					</Text>
 					<Text>{currentTest.name}</Text>
 				</Box>
 				<Box>
-					<Text color="yellow" bold>Description: </Text>
+					<Text color="yellow" bold>
+						Description:{' '}
+					</Text>
 					<Text dimColor>{currentTest.description}</Text>
 				</Box>
 			</Box>
@@ -128,13 +137,15 @@ function TestHarness() {
 			{/* Props Inspector */}
 			<Box borderStyle="round" borderColor="gray" padding={1} marginBottom={1}>
 				<Box flexDirection="column">
-					<Text bold underline>Props:</Text>
+					<Text bold underline>
+						Props:
+					</Text>
 					{Object.keys(currentTest.props).length === 0 ? (
 						<Text dimColor>{'  (using defaults)'}</Text>
 					) : (
 						Object.entries(currentTest.props).map(([key, value]) => (
 							<Box key={key}>
-								<Text color="green">  {key}: </Text>
+								<Text color="green"> {key}: </Text>
 								<Text>{JSON.stringify(value)}</Text>
 							</Box>
 						))
@@ -143,13 +154,20 @@ function TestHarness() {
 			</Box>
 
 			{/* Component Render Area */}
-			<Box borderStyle="classic" borderColor="white" padding={1} marginBottom={1}>
+			<Box
+				borderStyle="classic"
+				borderColor="white"
+				padding={1}
+				marginBottom={1}
+			>
 				<ExampleComponent {...currentTest.props} />
 			</Box>
 
 			{/* Footer */}
 			<Box justifyContent="space-between">
-				<Text dimColor>Terminal size: {process.stdout.columns}x{process.stdout.rows}</Text>
+				<Text dimColor>
+					Terminal size: {process.stdout.columns}x{process.stdout.rows}
+				</Text>
 				<Text dimColor>Node: {process.version}</Text>
 			</Box>
 		</Box>
@@ -160,5 +178,5 @@ function TestHarness() {
 // RENDER
 // ============================================================================
 
-const { waitUntilExit } = render(<TestHarness />);
+const {waitUntilExit} = render(<TestHarness />);
 await waitUntilExit();

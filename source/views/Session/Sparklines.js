@@ -1,49 +1,46 @@
 import React from 'react';
-import { render, Box, Text } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { Histogram } from './source/components/Chart.js';
-
+import {render, Box, Text} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {Histogram} from './source/components/Chart.js';
 
 /**
  * Chart component representing session activity.
- * 
+ *
  * The chart displays the number of tokens for each log type per unit of time over the
  * duration of the session. Data is normalized so that comparisons can be made across
  * log types.
- * 
+ *
  * @param {array} logs - Array of session logs as returned by `parseLogFile`
  * @param {int} width - Width (columns) of the plotted area
  * @param {int} height - Height (rows) of the plotted area
-*/
-export default function Sparklines({ logs, width = 120, height = 3 }) {
-
-
-	const logsWithData = logs.filter(log =>
-		log.timestamp && log.usage > 0
-	);
+ */
+export default function Sparklines({logs, width = 120, height = 3}) {
+	const logsWithData = logs.filter(log => log.timestamp && log.usage > 0);
 
 	if (logsWithData.length === 0) {
 		return <Text>No log data available with timestamps and usage</Text>;
 	}
 
-	const timestamps = logsWithData.map(log => new Date(log.timestamp).getTime() / 1000);
+	const timestamps = logsWithData.map(
+		log => new Date(log.timestamp).getTime() / 1000,
+	);
 	const minTime = Math.min(...timestamps);
 	const maxTime = Math.max(...timestamps);
 	const startDate = new Date(minTime * 1000);
 	const endDate = new Date(maxTime * 1000);
 	const isMultiDaySession = startDate.toDateString() !== endDate.toDateString();
 
-	const formatTimeLabel = (date) => {
+	const formatTimeLabel = date => {
 		const time = date.toLocaleTimeString('en-US', {
 			hour: '2-digit',
 			minute: '2-digit',
-			hour12: true
+			hour12: true,
 		});
 
 		if (isMultiDaySession) {
 			const dateStr = date.toLocaleDateString('en-US', {
 				month: 'short',
-				day: 'numeric'
+				day: 'numeric',
 			});
 			return `${dateStr} ${time}`;
 		}
@@ -52,27 +49,30 @@ export default function Sparklines({ logs, width = 120, height = 3 }) {
 	};
 
 	const logTypes = [
-		{ name: 'assistant', color: '#2ecc71', label: 'Assistant' },
-		{ name: 'tool_use', color: '#3498db', label: 'Tool Use' },
-		{ name: 'thinking', color: '#9b59b6', label: 'Thinking' },
+		{name: 'assistant', color: '#2ecc71', label: 'Assistant'},
+		{name: 'tool_use', color: '#3498db', label: 'Tool Use'},
+		{name: 'thinking', color: '#9b59b6', label: 'Thinking'},
 		// { name: 'subagent', color: '#e74c3c', label: 'Agents' }
 	];
 
-	const dataByType = logTypes.map(({ name }) => {
+	const dataByType = logTypes.map(({name}) => {
 		const filtered = logsWithData.filter(log => log.type === name);
 		return {
 			x: filtered.map(log => new Date(log.timestamp).getTime() / 1000),
 			y: filtered.map(log => log.usage),
 			totalTokens: filtered.reduce((sum, log) => sum + log.usage, 0),
-			count: filtered.length
+			count: filtered.length,
 		};
 	});
 
-	const totalTokens = dataByType.reduce((sum, data) => sum + data.totalTokens, 0);
+	const totalTokens = dataByType.reduce(
+		(sum, data) => sum + data.totalTokens,
+		0,
+	);
 
 	const chartWidth = width - 4; // Account for border (2) and padding (2)
 
-	const histogram = (data) => {
+	const histogram = data => {
 		const xStep = (maxTime - minTime) / chartWidth;
 		const bins = Array(chartWidth).fill(0);
 
@@ -94,19 +94,18 @@ export default function Sparklines({ logs, width = 120, height = 3 }) {
 
 	return (
 		<Box flexDirection="column" padding={1}>
-
 			{/* Normalized chart */}
 			<TitledBox
 				borderStyle="single"
 				borderColor="gray"
 				padding={1}
 				paddingBottom={0}
-				titles={["Activity (Normalized)"]}
+				titles={['Activity (Normalized)']}
 				width={width}
 				marginTop={1}
 			>
 				<Box flexDirection="column" marginTop={-1}>
-					{logTypes.map(({ name, color, label }, idx) => {
+					{logTypes.map(({name, color, label}, idx) => {
 						const data = dataByType[idx];
 
 						return (
@@ -147,18 +146,21 @@ export default function Sparklines({ logs, width = 120, height = 3 }) {
 
 /**
  * Combined time axis and legened of Sparkline plot.
- * 
+ *
  * @param {array} data - An array whose `i`-th entry contain token data for the `i`-th log type.
  * @param {array} types - An array of log types ('Assistant', 'Thinking', and 'Tool Use').
- * @returns 
+ * @returns
  */
-function TimeAxisLegend({ data, types, startDate, endDate, totalTokens}) {
+function TimeAxisLegend({data, types, startDate, endDate, totalTokens}) {
 	return (
 		<Box marginTop={1} justifyContent="space-between" width={chartWidth}>
 			<Text dimColor>{formatTimeLabel(startDate)}</Text>
 			<Box gap={3}>
-				{types.map(({ name, color, label }, idx) => {
-					const percentage = totalTokens > 0 ? ((data[idx].totalTokens / totalTokens) * 100).toFixed(1) : 0;
+				{types.map(({name, color, label}, idx) => {
+					const percentage =
+						totalTokens > 0
+							? ((data[idx].totalTokens / totalTokens) * 100).toFixed(1)
+							: 0;
 					return (
 						<Box key={`legend-${name}`} gap={1}>
 							<Text color={color}>█</Text>
@@ -170,5 +172,5 @@ function TimeAxisLegend({ data, types, startDate, endDate, totalTokens}) {
 			</Box>
 			<Text dimColor>{formatTimeLabel(endDate)}</Text>
 		</Box>
-	)
+	);
 }

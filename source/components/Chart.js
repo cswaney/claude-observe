@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text } from 'ink';
+import {Box, Text} from 'ink';
 
 /**
  * A textual histogram component for Ink.js
@@ -22,7 +22,17 @@ import { Box, Text } from 'ink';
  * @param {number} [props.yMax] - Maximum y value for scaling (defaults to max of binned data)
  * @param {string} [props.color] - Optional color for the bars
  */
-export function Histogram({ x, y, width, height, xMin, xMax, yMin, yMax, color }) {
+export function Histogram({
+	x,
+	y,
+	width,
+	height,
+	xMin,
+	xMax,
+	yMin,
+	yMax,
+	color,
+}) {
 	const bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 	const nbars = bars.length;
 
@@ -52,7 +62,9 @@ export function Histogram({ x, y, width, height, xMin, xMax, yMin, yMax, color }
 		const yStep = (actualYMax - actualYMin) / (height * nbars);
 
 		// Scale data to chart height
-		const scaledData = data.map(value => Math.floor((value - actualYMin) / yStep));
+		const scaledData = data.map(value =>
+			Math.floor((value - actualYMin) / yStep),
+		);
 
 		return scaledData;
 	};
@@ -73,7 +85,7 @@ export function Histogram({ x, y, width, height, xMin, xMax, yMin, yMax, color }
  * @param {number} props.height - Number of rows to use for the chart
  * @param {string} [props.color] - Optional color for the bars
  */
-function BarChart({ data, height, color }) {
+function BarChart({data, height, color}) {
 	const bars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 	const nbars = bars.length;
 
@@ -81,19 +93,21 @@ function BarChart({ data, height, color }) {
 		const minY = rowIndex * nbars;
 		const maxY = (rowIndex + 1) * nbars;
 
-		return data.map((value, idx) => {
-			let char;
-			if (value >= maxY) {
-				char = bars[nbars - 1];
-			} else if (value > minY) {
-				char = bars[(value % nbars) - 1];
-			} else if (rowIndex === 0) {
-				char = bars[0];
-			} else {
-				char = ' ';
-			}
-			return char;
-		}).join('');
+		return data
+			.map((value, idx) => {
+				let char;
+				if (value >= maxY) {
+					char = bars[nbars - 1];
+				} else if (value > minY) {
+					char = bars[(value % nbars) - 1];
+				} else if (rowIndex === 0) {
+					char = bars[0];
+				} else {
+					char = ' ';
+				}
+				return char;
+			})
+			.join('');
 	};
 
 	const rows = [];
@@ -101,13 +115,9 @@ function BarChart({ data, height, color }) {
 		rows.push(
 			<Text key={rowIndex} color={color}>
 				{renderRow(rowIndex, data)}
-			</Text>
+			</Text>,
 		);
 	}
 
-	return (
-		<Box flexDirection="column">
-			{rows}
-		</Box>
-	);
+	return <Box flexDirection="column">{rows}</Box>;
 }

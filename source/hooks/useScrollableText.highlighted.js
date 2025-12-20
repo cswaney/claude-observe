@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-import React, { useState, useMemo } from 'react';
-import { render, Box, Text, useInput } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { useScrollableText } from './useScrollableText.js';
+import React, {useState, useMemo} from 'react';
+import {render, Box, Text, useInput} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {useScrollableText} from './useScrollableText.js';
 
 // Copy of HighlightedJSON component from Details
-function HighlightedJSON({ line }) {
+function HighlightedJSON({line}) {
 	const tokens = [];
 	let currentIndex = 0;
 
 	const patterns = [
-		{ regex: /"([^"\\]|\\.)*"\s*:/, type: 'key' },
-		{ regex: /"([^"\\]|\\.)*"/, type: 'string' },
-		{ regex: /\b(true|false|null)\b/, type: 'keyword' },
-		{ regex: /-?\d+\.?\d*/, type: 'number' },
-		{ regex: /[{}\[\],:]/, type: 'punctuation' },
+		{regex: /"([^"\\]|\\.)*"\s*:/, type: 'key'},
+		{regex: /"([^"\\]|\\.)*"/, type: 'string'},
+		{regex: /\b(true|false|null)\b/, type: 'keyword'},
+		{regex: /-?\d+\.?\d*/, type: 'number'},
+		{regex: /[{}\[\],:]/, type: 'punctuation'},
 	];
 
 	while (currentIndex < line.length) {
@@ -26,7 +26,7 @@ function HighlightedJSON({ line }) {
 
 			if (match) {
 				const text = match[0];
-				tokens.push({ text, type: pattern.type });
+				tokens.push({text, type: pattern.type});
 				currentIndex += text.length;
 				matched = true;
 				break;
@@ -34,7 +34,7 @@ function HighlightedJSON({ line }) {
 		}
 
 		if (!matched) {
-			tokens.push({ text: line[currentIndex], type: 'plain' });
+			tokens.push({text: line[currentIndex], type: 'plain'});
 			currentIndex++;
 		}
 	}
@@ -118,17 +118,13 @@ function HighlightedScrollableDemo() {
 
 	useInput((input, key) => {
 		if (key.upArrow) {
-			setScrollOffset((prev) => Math.max(0, prev - 1));
+			setScrollOffset(prev => Math.max(0, prev - 1));
 		} else if (key.downArrow) {
-			setScrollOffset((prev) =>
-				Math.min(viewport.maxScrollOffset, prev + 1),
-			);
+			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 1));
 		} else if (input === 'u') {
-			setScrollOffset((prev) => Math.max(0, prev - 5));
+			setScrollOffset(prev => Math.max(0, prev - 5));
 		} else if (input === 'd') {
-			setScrollOffset((prev) =>
-				Math.min(viewport.maxScrollOffset, prev + 5),
-			);
+			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 5));
 		} else if (input === 't') {
 			setScrollOffset(0);
 		} else if (input === 'b') {
@@ -176,9 +172,7 @@ function HighlightedScrollableDemo() {
 				{viewport.visibleLines.map((line, idx) => (
 					<Box key={idx}>
 						<Box width={4}>
-							<Text dimColor>
-								[{viewport.startLineIndex + idx}]
-							</Text>
+							<Text dimColor>[{viewport.startLineIndex + idx}]</Text>
 						</Box>
 						<HighlightedJSON line={line} />
 					</Box>
@@ -209,25 +203,20 @@ function HighlightedScrollableDemo() {
 					Key Insight:
 				</Text>
 				<Text>
-					• Tabs expanded to {tabSize} spaces BEFORE calculating line
-					heights
+					• Tabs expanded to {tabSize} spaces BEFORE calculating line heights
 				</Text>
 				<Text>
-					• Line 4 length with tab=2: ~{processedText.split('\n')[3]?.length || 0} chars
+					• Line 4 length with tab=2: ~
+					{processedText.split('\n')[3]?.length || 0} chars
 				</Text>
-				<Text>
-					• Line 4 length with tab=4: would be ~2 chars longer
-				</Text>
-				<Text>
-					• This affects wrapping calculations and viewport!
-				</Text>
+				<Text>• Line 4 length with tab=4: would be ~2 chars longer</Text>
+				<Text>• This affects wrapping calculations and viewport!</Text>
 			</Box>
 
 			{/* Controls */}
 			<Box marginTop={1}>
 				<Text dimColor>
-					↑/↓: Scroll | u/d: Page | t/b: Top/Bottom | 2/4: Tab size |
-					q: Quit
+					↑/↓: Scroll | u/d: Page | t/b: Top/Bottom | 2/4: Tab size | q: Quit
 				</Text>
 			</Box>
 		</Box>

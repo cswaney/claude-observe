@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import React, { useState } from 'react';
-import { render, Box, Text, useInput } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { useScrollableList } from './source/hooks/useScrollableList.js';
+import React, {useState} from 'react';
+import {render, Box, Text, useInput} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {useScrollableList} from './source/hooks/useScrollableList.js';
 
 /**
  * Example showing how to use useScrollableList hook with custom UI
@@ -11,12 +11,12 @@ import { useScrollableList } from './source/hooks/useScrollableList.js';
 
 function SimpleListExample() {
 	const [selectedIndex, setSelectedIndex] = useState(0);
-	const items = Array.from({ length: 30 }, (_, i) => ({
+	const items = Array.from({length: 30}, (_, i) => ({
 		id: i,
 		title: `Item ${i + 1}`,
 	}));
 
-	const { visibleItems, startIndex, rowsAbove, rowsBelow } = useScrollableList({
+	const {visibleItems, startIndex, rowsAbove, rowsBelow} = useScrollableList({
 		items,
 		selectedIndex,
 		height: 10,
@@ -36,21 +36,22 @@ function SimpleListExample() {
 				padding={1}
 			>
 				<Box flexDirection="column">
-					{rowsAbove > 0 && (
-						<Text dimColor>↑ {rowsAbove} more above</Text>
-					)}
+					{rowsAbove > 0 && <Text dimColor>↑ {rowsAbove} more above</Text>}
 					{visibleItems.map((item, idx) => {
 						const absoluteIndex = startIndex + idx;
 						const isSelected = absoluteIndex === selectedIndex;
 						return (
-							<Text key={item.id} bold={isSelected} color={isSelected ? '#3498db' : 'white'}>
-								{isSelected ? '▶ ' : '  '}{item.title}
+							<Text
+								key={item.id}
+								bold={isSelected}
+								color={isSelected ? '#3498db' : 'white'}
+							>
+								{isSelected ? '▶ ' : '  '}
+								{item.title}
 							</Text>
 						);
 					})}
-					{rowsBelow > 0 && (
-						<Text dimColor>↓ {rowsBelow} more below</Text>
-					)}
+					{rowsBelow > 0 && <Text dimColor>↓ {rowsBelow} more below</Text>}
 				</Box>
 			</TitledBox>
 		</Box>
@@ -59,13 +60,13 @@ function SimpleListExample() {
 
 function CustomStyledListExample() {
 	const [selectedIndex, setSelectedIndex] = useState(15);
-	const items = Array.from({ length: 30 }, (_, i) => ({
+	const items = Array.from({length: 30}, (_, i) => ({
 		id: i,
 		title: `Task ${i + 1}`,
 		status: i % 3 === 0 ? 'done' : i % 3 === 1 ? 'pending' : 'failed',
 	}));
 
-	const { visibleItems, startIndex, rowsAbove, rowsBelow } = useScrollableList({
+	const {visibleItems, startIndex, rowsAbove, rowsBelow} = useScrollableList({
 		items,
 		selectedIndex,
 		height: 8,
@@ -77,21 +78,29 @@ function CustomStyledListExample() {
 		if (key.downArrow) setSelectedIndex(i => Math.min(items.length - 1, i + 1));
 	});
 
-	const getStatusColor = (status) => {
+	const getStatusColor = status => {
 		switch (status) {
-			case 'done': return '#2ecc71';
-			case 'pending': return '#f1c40f';
-			case 'failed': return '#e74c3c';
-			default: return 'white';
+			case 'done':
+				return '#2ecc71';
+			case 'pending':
+				return '#f1c40f';
+			case 'failed':
+				return '#e74c3c';
+			default:
+				return 'white';
 		}
 	};
 
-	const getStatusIcon = (status) => {
+	const getStatusIcon = status => {
 		switch (status) {
-			case 'done': return '✓';
-			case 'pending': return '○';
-			case 'failed': return '✗';
-			default: return ' ';
+			case 'done':
+				return '✓';
+			case 'pending':
+				return '○';
+			case 'failed':
+				return '✗';
+			default:
+				return ' ';
 		}
 	};
 
@@ -120,8 +129,12 @@ function CustomStyledListExample() {
 									{getStatusIcon(item.status)}
 								</Text>
 								<Text> </Text>
-								<Text bold={isSelected} color={isSelected ? '#3498db' : 'white'}>
-									{isSelected ? '▸ ' : '  '}{item.title}
+								<Text
+									bold={isSelected}
+									color={isSelected ? '#3498db' : 'white'}
+								>
+									{isSelected ? '▸ ' : '  '}
+									{item.title}
 								</Text>
 								<Text dimColor> [{item.status}]</Text>
 							</Box>
@@ -142,7 +155,7 @@ function CustomStyledListExample() {
 
 function VariableHeightExample() {
 	const [selectedIndex, setSelectedIndex] = useState(5);
-	const items = Array.from({ length: 20 }, (_, i) => ({
+	const items = Array.from({length: 20}, (_, i) => ({
 		id: i,
 		title: `Item ${i + 1}`,
 		description: `This is a longer description for item ${i + 1}`,
@@ -153,7 +166,7 @@ function VariableHeightExample() {
 		return index === selectedIndex ? 2 : 1;
 	};
 
-	const { visibleItems, startIndex, rowsAbove, rowsBelow } = useScrollableList({
+	const {visibleItems, startIndex, rowsAbove, rowsBelow} = useScrollableList({
 		items,
 		selectedIndex,
 		height: 12,
@@ -182,12 +195,13 @@ function VariableHeightExample() {
 						const isSelected = absoluteIndex === selectedIndex;
 						return (
 							<Box key={item.id} flexDirection="column">
-								<Text bold={isSelected} color={isSelected ? '#2ecc71' : 'white'}>
+								<Text
+									bold={isSelected}
+									color={isSelected ? '#2ecc71' : 'white'}
+								>
 									{isSelected ? '› ' : '  '}[{absoluteIndex}] {item.title}
 								</Text>
-								{isSelected && (
-									<Text dimColor>    {item.description}</Text>
-								)}
+								{isSelected && <Text dimColor> {item.description}</Text>}
 							</Box>
 						);
 					})}
@@ -204,7 +218,9 @@ function App() {
 	return (
 		<Box flexDirection="column">
 			<Box>
-				<Text bold color="#2ecc71">useScrollableList Hook Examples</Text>
+				<Text bold color="#2ecc71">
+					useScrollableList Hook Examples
+				</Text>
 			</Box>
 			<Box marginTop={1}>
 				<Text dimColor>Use ↑/↓ arrows to navigate • Press Ctrl+C to exit</Text>

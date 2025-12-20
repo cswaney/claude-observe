@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Box, Text, useInput } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { useScrollableText } from '../../hooks/useScrollableText.js';
+import React, {useState, useEffect, useMemo, useCallback} from 'react';
+import {Box, Text, useInput} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {useScrollableText} from '../../hooks/useScrollableText.js';
 
 function typeDisplay(log) {
-	if (log.type === 'tool_use' || log.type === 'tool_result' && log.toolName) {
+	if (log.type === 'tool_use' || (log.type === 'tool_result' && log.toolName)) {
 		return `Tool (${log.toolName})`;
 	} else if (log.type === 'thinking') {
 		return 'Thinking';
@@ -98,7 +98,7 @@ function formatTokens(count) {
 	return count.toString();
 }
 
-function HighlightedJSON({ line, inString }) {
+function HighlightedJSON({line, inString}) {
 	// Parse the line to identify JSON syntax elements
 	// inString indicates if we're continuing a string from a previous line
 	const tokens = [];
@@ -166,7 +166,8 @@ function HighlightedJSON({ line, inString }) {
 							text: afterQuote ? fullString + afterQuote[0] : fullString,
 							type: afterQuote ? 'key' : 'string',
 						});
-						currentIndex = stringEnd + 1 + (afterQuote ? afterQuote[0].length : 0);
+						currentIndex =
+							stringEnd + 1 + (afterQuote ? afterQuote[0].length : 0);
 						matched = true;
 						break;
 					}
@@ -188,10 +189,10 @@ function HighlightedJSON({ line, inString }) {
 			if (!matched) {
 				// Try other patterns
 				const patterns = [
-					{ regex: /\b(true|false|null)\b/, type: 'keyword' },
-					{ regex: /-?\d+\.?\d*/, type: 'number' },
-					{ regex: /[{}\[\],:]/, type: 'punctuation' },
-					{ regex: /\s+/, type: 'whitespace' },
+					{regex: /\b(true|false|null)\b/, type: 'keyword'},
+					{regex: /-?\d+\.?\d*/, type: 'number'},
+					{regex: /[{}\[\],:]/, type: 'punctuation'},
+					{regex: /\s+/, type: 'whitespace'},
 				];
 
 				for (const pattern of patterns) {
@@ -199,7 +200,7 @@ function HighlightedJSON({ line, inString }) {
 					const match = line.slice(currentIndex).match(regex);
 
 					if (match) {
-						tokens.push({ text: match[0], type: pattern.type });
+						tokens.push({text: match[0], type: pattern.type});
 						currentIndex += match[0].length;
 						matched = true;
 						break;
@@ -207,7 +208,7 @@ function HighlightedJSON({ line, inString }) {
 				}
 
 				if (!matched) {
-					tokens.push({ text: char, type: 'plain' });
+					tokens.push({text: char, type: 'plain'});
 					currentIndex++;
 				}
 			}
@@ -258,12 +259,12 @@ function HighlightedJSON({ line, inString }) {
 	);
 }
 
-export default function Details({ log, width, contentHeight = 30 }) {
+export default function Details({log, width, contentHeight = 30}) {
 	const [scrollOffset, setScrollOffset] = useState(0);
 
 	// Extract content as text string (not lines array)
 	// Memoize to avoid recalculating on every render
-	const { contentText, isJSON } = useMemo(() => {
+	const {contentText, isJSON} = useMemo(() => {
 		let text = '';
 		let json = false;
 
@@ -298,10 +299,10 @@ export default function Details({ log, width, contentHeight = 30 }) {
 		if (json) {
 			text = expandJsonStringEscapes(text);
 		} else {
-			text = text.replace(/\\n/g, '\n');  // Escaped newlines → actual newlines
+			text = text.replace(/\\n/g, '\n'); // Escaped newlines → actual newlines
 		}
 
-		return { contentText: text, isJSON: json };
+		return {contentText: text, isJSON: json};
 	}, [log]);
 
 	// Calculate string state for each line (for multi-line JSON strings)
@@ -408,11 +409,11 @@ export default function Details({ log, width, contentHeight = 30 }) {
 					{(log.type === 'assistant' ||
 						log.type === 'tool_use' ||
 						log.type === 'thinking') && (
-							<Box>
-								<Text dimColor>Model: </Text>
-								<Text>{log.raw?.message?.model || 'N/A'}</Text>
-							</Box>
-						)}
+						<Box>
+							<Text dimColor>Model: </Text>
+							<Text>{log.raw?.message?.model || 'N/A'}</Text>
+						</Box>
+					)}
 					{(log.type === 'assistant' ||
 						log.type === 'tool_use' ||
 						log.type === 'thinking') &&
@@ -425,11 +426,11 @@ export default function Details({ log, width, contentHeight = 30 }) {
 					{(log.type === 'assistant' ||
 						log.type === 'tool_use' ||
 						log.type === 'thinking') && (
-							<Box>
-								<Text dimColor>Stop Reason: </Text>
-								<Text>{log.raw?.message?.stop_reason || 'None'}</Text>
-							</Box>
-						)}
+						<Box>
+							<Text dimColor>Stop Reason: </Text>
+							<Text>{log.raw?.message?.stop_reason || 'None'}</Text>
+						</Box>
+					)}
 				</TitledBox>
 
 				{/* Content */}
@@ -455,7 +456,9 @@ export default function Details({ log, width, contentHeight = 30 }) {
 								</Box>
 								<HighlightedJSON
 									line={line}
-									inString={lineStringStates[viewport.startLineIndex + idx] || false}
+									inString={
+										lineStringStates[viewport.startLineIndex + idx] || false
+									}
 								/>
 							</Box>
 						) : (
@@ -469,9 +472,7 @@ export default function Details({ log, width, contentHeight = 30 }) {
 					)}
 					{viewport.hasLinesBelow && (
 						<Box width={width - 8} height={2}>
-							<Text dimColor>
-								... {viewport.rowsBelow} rows below ...
-							</Text>
+							<Text dimColor>... {viewport.rowsBelow} rows below ...</Text>
 						</Box>
 					)}
 				</TitledBox>
@@ -480,7 +481,9 @@ export default function Details({ log, width, contentHeight = 30 }) {
 			{/* Navigation */}
 			<Box justifyContent="center" marginTop={1}>
 				<Text dimColor>
-					↑/↓: Scroll | ←: Session | Esc: Browser | Shift+←/→: Prev/Next log | u/d/t/b: Jump | Line {viewport.startLineIndex}-{viewport.endLineIndex}/{viewport.totalLines - 1}
+					↑/↓: Scroll | ←: Session | Esc: Browser | Shift+←/→: Prev/Next log |
+					u/d/t/b: Jump | Line {viewport.startLineIndex}-{viewport.endLineIndex}
+					/{viewport.totalLines - 1}
 				</Text>
 			</Box>
 		</Box>

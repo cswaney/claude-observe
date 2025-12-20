@@ -1,5 +1,5 @@
-import { useMemo, useCallback } from 'react';
-import { calculateTextViewport } from '../utils/calculateTextViewport.js';
+import {useMemo, useCallback} from 'react';
+import {calculateTextViewport} from '../utils/calculateTextViewport.js';
 
 /**
  * Custom hook for managing scrollable text viewport

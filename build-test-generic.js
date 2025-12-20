@@ -23,11 +23,7 @@ await esbuild.build({
 	loader: {
 		'.js': 'jsx',
 	},
-	external: [
-		'react',
-		'ink',
-		'@mishieck/ink-titled-box',
-	],
+	external: ['react', 'ink', '@mishieck/ink-titled-box'],
 	logLevel: 'info',
 });
 

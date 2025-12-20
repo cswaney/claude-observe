@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import React, { useState, useEffect } from 'react';
-import { render, Box, Text } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { Histogram } from './source/components/Chart.js';
-import { parseLogFile } from './source/parser.js';
+import React, {useState, useEffect} from 'react';
+import {render, Box, Text} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {Histogram} from './source/components/Chart.js';
+import {parseLogFile} from './source/parser.js';
 
 function LiveActivityChart() {
-	const sessionPath = '/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
+	const sessionPath =
+		'/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
 
 	const [progress, setProgress] = useState(0);
 	const [isComplete, setIsComplete] = useState(false);
@@ -16,7 +17,9 @@ function LiveActivityChart() {
 	const logsWithData = logs.filter(log => log.raw.timestamp && log.usage > 0);
 
 	// Calculate time range
-	const allTimestamps = logsWithData.map(log => new Date(log.raw.timestamp).getTime() / 1000);
+	const allTimestamps = logsWithData.map(
+		log => new Date(log.raw.timestamp).getTime() / 1000,
+	);
 	const minTime = Math.min(...allTimestamps);
 	const maxTime = Math.max(...allTimestamps);
 	const duration = maxTime - minTime;
@@ -27,17 +30,17 @@ function LiveActivityChart() {
 	const endDate = new Date(maxTime * 1000);
 	const spanMultipleDays = startDate.toDateString() !== endDate.toDateString();
 
-	const formatTimeLabel = (date) => {
+	const formatTimeLabel = date => {
 		const time = date.toLocaleTimeString('en-US', {
 			hour: '2-digit',
 			minute: '2-digit',
-			hour12: true
+			hour12: true,
 		});
 
 		if (spanMultipleDays) {
 			const dateStr = date.toLocaleDateString('en-US', {
 				month: 'short',
-				day: 'numeric'
+				day: 'numeric',
 			});
 			return `${dateStr} ${time}`;
 		}
@@ -47,9 +50,9 @@ function LiveActivityChart() {
 
 	// Separate data by type
 	const logTypes = [
-		{ name: 'assistant', color: '#2ecc71', label: 'Assistant' },
-		{ name: 'tool_use', color: '#3498db', label: 'Tool Use' },
-		{ name: 'thinking', color: '#9b59b6', label: 'Thinking' }
+		{name: 'assistant', color: '#2ecc71', label: 'Assistant'},
+		{name: 'tool_use', color: '#3498db', label: 'Tool Use'},
+		{name: 'thinking', color: '#9b59b6', label: 'Thinking'},
 	];
 
 	// Filter data up to current progress (0-100%)
@@ -59,17 +62,20 @@ function LiveActivityChart() {
 		return timestamp <= progressTime;
 	});
 
-	const dataByType = logTypes.map(({ name }) => {
+	const dataByType = logTypes.map(({name}) => {
 		const filtered = filteredLogs.filter(log => log.type === name);
 		return {
 			x: filtered.map(log => new Date(log.raw.timestamp).getTime() / 1000),
 			y: filtered.map(log => log.usage),
 			totalTokens: filtered.reduce((sum, log) => sum + log.usage, 0),
-			count: filtered.length
+			count: filtered.length,
 		};
 	});
 
-	const totalTokens = dataByType.reduce((sum, data) => sum + data.totalTokens, 0);
+	const totalTokens = dataByType.reduce(
+		(sum, data) => sum + data.totalTokens,
+		0,
+	);
 
 	// Chart dimensions
 	const width = 120;
@@ -105,7 +111,9 @@ function LiveActivityChart() {
 				<Text bold color={isComplete ? 'green' : 'gray'}>
 					{isComplete ? '✓ Session Complete' : '⟳ Loading Session Data...'}
 				</Text>
-				<Text dimColor>Duration: {Math.floor(currentDurationMinutes)} minutes</Text>
+				<Text dimColor>
+					Duration: {Math.floor(currentDurationMinutes)} minutes
+				</Text>
 				<Text dimColor>Tokens Loaded: {totalTokens.toLocaleString()}</Text>
 				<Text dimColor>Progress: {progress.toFixed(0)}%</Text>
 			</Box>
@@ -115,12 +123,12 @@ function LiveActivityChart() {
 				borderColor="gray"
 				padding={1}
 				paddingBottom={0}
-				titles={["Live Activity Stream"]}
+				titles={['Live Activity Stream']}
 				width={boxWidth}
 			>
 				<Box flexDirection="column" marginTop={-1}>
 					{/* Chart histograms - always fill width using current progress time as end */}
-					{logTypes.map(({ name, color, label }, idx) => {
+					{logTypes.map(({name, color, label}, idx) => {
 						const data = dataByType[idx];
 
 						return (
@@ -150,9 +158,12 @@ function LiveActivityChart() {
 
 						{/* Legend - always visible with updating percentages */}
 						<Box gap={3}>
-							{logTypes.map(({ name, color, label }, idx) => {
+							{logTypes.map(({name, color, label}, idx) => {
 								const data = dataByType[idx];
-								const percentage = totalTokens > 0 ? ((data.totalTokens / totalTokens) * 100).toFixed(1) : 0;
+								const percentage =
+									totalTokens > 0
+										? ((data.totalTokens / totalTokens) * 100).toFixed(1)
+										: 0;
 								return (
 									<Box key={`legend-${name}`} gap={1}>
 										<Text color={color}>█</Text>

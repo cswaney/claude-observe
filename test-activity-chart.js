@@ -1,27 +1,28 @@
 #!/usr/bin/env node
 import React from 'react';
-import { render, Box, Text } from 'ink';
-import { TitledBox } from '@mishieck/ink-titled-box';
-import { Histogram } from './source/components/Chart.js';
-import { parseLogFile } from './source/parser.js';
+import {render, Box, Text} from 'ink';
+import {TitledBox} from '@mishieck/ink-titled-box';
+import {Histogram} from './source/components/Chart.js';
+import {parseLogFile} from './source/parser.js';
 
 function ActivityChart() {
-	const sessionPath = '/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
+	const sessionPath =
+		'/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
 
 	console.log('Loading session...');
 	const logs = parseLogFile(sessionPath);
 	console.log(`Loaded ${logs.length} logs\n`);
 
-	const logsWithData = logs.filter(log =>
-		log.raw.timestamp && log.usage > 0
-	);
+	const logsWithData = logs.filter(log => log.raw.timestamp && log.usage > 0);
 
 	if (logsWithData.length === 0) {
 		return <Text>No log data available with timestamps and usage</Text>;
 	}
 
 	// Calculate time range
-	const allTimestamps = logsWithData.map(log => new Date(log.raw.timestamp).getTime() / 1000);
+	const allTimestamps = logsWithData.map(
+		log => new Date(log.raw.timestamp).getTime() / 1000,
+	);
 	const minTime = Math.min(...allTimestamps);
 	const maxTime = Math.max(...allTimestamps);
 	const duration = maxTime - minTime;
@@ -34,17 +35,17 @@ function ActivityChart() {
 	// Check if session spans multiple days
 	const spanMultipleDays = startDate.toDateString() !== endDate.toDateString();
 
-	const formatTimeLabel = (date) => {
+	const formatTimeLabel = date => {
 		const time = date.toLocaleTimeString('en-US', {
 			hour: '2-digit',
 			minute: '2-digit',
-			hour12: true
+			hour12: true,
 		});
 
 		if (spanMultipleDays) {
 			const dateStr = date.toLocaleDateString('en-US', {
 				month: 'short',
-				day: 'numeric'
+				day: 'numeric',
 			});
 			return `${dateStr} ${time}`;
 		}
@@ -54,23 +55,26 @@ function ActivityChart() {
 
 	// Separate data by type
 	const logTypes = [
-		{ name: 'assistant', color: '#2ecc71', label: 'Assistant' },
-		{ name: 'tool_use', color: '#3498db', label: 'Tool Use' },
-		{ name: 'thinking', color: '#9b59b6', label: 'Thinking' },
+		{name: 'assistant', color: '#2ecc71', label: 'Assistant'},
+		{name: 'tool_use', color: '#3498db', label: 'Tool Use'},
+		{name: 'thinking', color: '#9b59b6', label: 'Thinking'},
 		// { name: 'subagent', color: '#e74c3c', label: 'Agents' }
 	];
 
-	const dataByType = logTypes.map(({ name }) => {
+	const dataByType = logTypes.map(({name}) => {
 		const filtered = logsWithData.filter(log => log.type === name);
 		return {
 			x: filtered.map(log => new Date(log.raw.timestamp).getTime() / 1000),
 			y: filtered.map(log => log.usage),
 			totalTokens: filtered.reduce((sum, log) => sum + log.usage, 0),
-			count: filtered.length
+			count: filtered.length,
 		};
 	});
 
-	const totalTokens = dataByType.reduce((sum, data) => sum + data.totalTokens, 0);
+	const totalTokens = dataByType.reduce(
+		(sum, data) => sum + data.totalTokens,
+		0,
+	);
 
 	// Chart dimensions
 	const width = 120;
@@ -80,7 +84,7 @@ function ActivityChart() {
 
 	// Calculate global max for normalized chart
 	// We need to bin the data for each type to find the maximum bin value across all types
-	const calculateBinnedData = (data) => {
+	const calculateBinnedData = data => {
 		const xStep = (maxTime - minTime) / chartWidth;
 		const bins = Array(chartWidth).fill(0);
 
@@ -113,12 +117,12 @@ function ActivityChart() {
 				borderColor="gray"
 				padding={1}
 				paddingBottom={0}
-				titles={["Activity"]}
+				titles={['Activity']}
 				width={boxWidth}
 			>
 				<Box flexDirection="column" marginTop={-1}>
 					{/* Chart histograms */}
-					{logTypes.map(({ name, color, label }, idx) => {
+					{logTypes.map(({name, color, label}, idx) => {
 						const data = dataByType[idx];
 
 						return (
@@ -148,9 +152,12 @@ function ActivityChart() {
 
 						{/* Legend */}
 						<Box gap={3}>
-							{logTypes.map(({ name, color, label }, idx) => {
+							{logTypes.map(({name, color, label}, idx) => {
 								const data = dataByType[idx];
-								const percentage = totalTokens > 0 ? ((data.totalTokens / totalTokens) * 100).toFixed(1) : 0;
+								const percentage =
+									totalTokens > 0
+										? ((data.totalTokens / totalTokens) * 100).toFixed(1)
+										: 0;
 								return (
 									<Box key={`legend-${name}`} gap={1}>
 										<Text color={color}>█</Text>
@@ -172,13 +179,13 @@ function ActivityChart() {
 				borderColor="gray"
 				padding={1}
 				paddingBottom={0}
-				titles={["Activity (Normalized)"]}
+				titles={['Activity (Normalized)']}
 				width={boxWidth}
 				marginTop={1}
 			>
 				<Box flexDirection="column" marginTop={-1}>
 					{/* Chart histograms - all use same yMax */}
-					{logTypes.map(({ name, color, label }, idx) => {
+					{logTypes.map(({name, color, label}, idx) => {
 						const data = dataByType[idx];
 
 						return (
@@ -210,9 +217,12 @@ function ActivityChart() {
 
 						{/* Legend */}
 						<Box gap={3}>
-							{logTypes.map(({ name, color, label }, idx) => {
+							{logTypes.map(({name, color, label}, idx) => {
 								const data = dataByType[idx];
-								const percentage = totalTokens > 0 ? ((data.totalTokens / totalTokens) * 100).toFixed(1) : 0;
+								const percentage =
+									totalTokens > 0
+										? ((data.totalTokens / totalTokens) * 100).toFixed(1)
+										: 0;
 								return (
 									<Box key={`legend-${name}`} gap={1}>
 										<Text color={color}>█</Text>

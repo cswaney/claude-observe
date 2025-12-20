@@ -182,7 +182,7 @@ export function loadSessionLogs(sessionPath) {
 		if (parsed.type === 'tool_result') {
 			const toolUseId = parsed.raw.message.content[0].tool_use_id;
 			const parentIndex = parsedLogs.findIndex(l => {
-				if (l.type === "tool_use") {
+				if (l.type === 'tool_use') {
 					return l.raw.message.content[0].id === toolUseId;
 				}
 			});

@@ -1,21 +1,20 @@
 #!/usr/bin/env node
 import React from 'react';
-import { render, Box, Text } from 'ink';
-import { Histogram } from './source/components/Chart.js';
-import { parseLogFile } from './source/parser.js';
+import {render, Box, Text} from 'ink';
+import {Histogram} from './source/components/Chart.js';
+import {parseLogFile} from './source/parser.js';
 
 function TokenHistogram() {
 	// Load session data
-	const sessionPath = '/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
+	const sessionPath =
+		'/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
 
 	console.log('Loading session...');
 	const logs = parseLogFile(sessionPath);
 	console.log(`Loaded ${logs.length} logs\n`);
 
 	// Filter logs that have timestamps and usage data
-	const logsWithData = logs.filter(log =>
-		log.raw.timestamp && log.usage > 0
-	);
+	const logsWithData = logs.filter(log => log.raw.timestamp && log.usage > 0);
 
 	if (logsWithData.length === 0) {
 		return <Text>No log data available with timestamps and usage</Text>;
@@ -39,11 +38,11 @@ function TokenHistogram() {
 	// Format time labels
 	const startDate = new Date(minTime * 1000);
 	const endDate = new Date(maxTime * 1000);
-	const formatTime = (date) => {
+	const formatTime = date => {
 		return date.toLocaleTimeString('en-US', {
 			hour: '2-digit',
 			minute: '2-digit',
-			hour12: false
+			hour12: false,
 		});
 	};
 
@@ -61,12 +60,17 @@ function TokenHistogram() {
 
 	return (
 		<Box flexDirection="column" padding={1}>
-			<Text bold color="cyan">Token Usage Histogram</Text>
+			<Text bold color="cyan">
+				Token Usage Histogram
+			</Text>
 			<Text dimColor>Session activity over time (token-weighted)</Text>
 			<Text> </Text>
 
 			<Box flexDirection="column" marginBottom={1}>
-				<Text dimColor>Duration: {Math.floor(durationMinutes)} minutes ({formatTime(startDate)} - {formatTime(endDate)})</Text>
+				<Text dimColor>
+					Duration: {Math.floor(durationMinutes)} minutes (
+					{formatTime(startDate)} - {formatTime(endDate)})
+				</Text>
 				<Text dimColor>Total Tokens: {totalTokens.toLocaleString()}</Text>
 				<Text dimColor>Total Logs: {logsWithData.length}</Text>
 			</Box>
@@ -77,7 +81,8 @@ function TokenHistogram() {
 					.sort((a, b) => b[1] - a[1])
 					.map(([type, tokens]) => (
 						<Text key={type} dimColor>
-							  {type}: {tokens.toLocaleString()} ({((tokens / totalTokens) * 100).toFixed(1)}%)
+							{type}: {tokens.toLocaleString()} (
+							{((tokens / totalTokens) * 100).toFixed(1)}%)
 						</Text>
 					))}
 			</Box>
@@ -99,7 +104,10 @@ function TokenHistogram() {
 			</Box>
 
 			<Text> </Text>
-			<Text dimColor>Each bar represents a time bin. Height shows total token usage in that period.</Text>
+			<Text dimColor>
+				Each bar represents a time bin. Height shows total token usage in that
+				period.
+			</Text>
 		</Box>
 	);
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import React from 'react';
-import { render, Box, Text } from 'ink';
+import {render, Box, Text} from 'ink';
 
 /**
  * Quick Test Harness for Ink Components
@@ -15,10 +15,17 @@ import { render, Box, Text } from 'ink';
 // PASTE YOUR TEST COMPONENT HERE
 // ============================================================================
 
-function ExampleComponent({ message = 'Hello, Ink!' }) {
+function ExampleComponent({message = 'Hello, Ink!'}) {
 	return (
-		<Box flexDirection="column" padding={1} borderStyle="round" borderColor="cyan">
-			<Text color="green" bold>Test Component</Text>
+		<Box
+			flexDirection="column"
+			padding={1}
+			borderStyle="round"
+			borderColor="cyan"
+		>
+			<Text color="green" bold>
+				Test Component
+			</Text>
 			<Text>{message}</Text>
 		</Box>
 	);
@@ -31,7 +38,7 @@ function ExampleComponent({ message = 'Hello, Ink!' }) {
 function TestHarness() {
 	// Configure test data/props here
 	const testProps = {
-		message: 'This is a test message!'
+		message: 'This is a test message!',
 	};
 
 	return (
@@ -41,7 +48,9 @@ function TestHarness() {
 			</Box>
 
 			<Box marginBottom={1}>
-				<Text bold color="yellow">Component Test Harness</Text>
+				<Text bold color="yellow">
+					Component Test Harness
+				</Text>
 			</Box>
 
 			{/* Your component renders here */}
@@ -58,7 +67,7 @@ function TestHarness() {
 // RENDER
 // ============================================================================
 
-const { unmount, waitUntilExit } = render(<TestHarness />);
+const {unmount, waitUntilExit} = render(<TestHarness />);
 
 // Auto-exit after render (useful for static components)
 // Comment out if you want interactive components

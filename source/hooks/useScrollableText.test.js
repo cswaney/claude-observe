@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import React from 'react';
-import { render } from 'ink';
-import { useScrollableText } from './useScrollableText.js';
+import {render} from 'ink';
+import {useScrollableText} from './useScrollableText.js';
 
 // Simple demo component to test the hook
 function ScrollableTextDemo() {

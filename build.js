@@ -12,7 +12,7 @@ await esbuild.build({
 	target: 'node16',
 	outfile: 'dist/cli.js',
 	loader: {
-		'.js': 'jsx',  // Enable JSX in .js files
+		'.js': 'jsx', // Enable JSX in .js files
 	},
 	external: [
 		// External dependencies that shouldn't be bundled

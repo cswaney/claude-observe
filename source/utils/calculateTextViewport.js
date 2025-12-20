@@ -66,7 +66,10 @@ export function calculateTextViewport({
 	}
 
 	// Clamp scrollOffset to valid range
-	const validScrollOffset = Math.max(0, Math.min(scrollOffset, lines.length - 1));
+	const validScrollOffset = Math.max(
+		0,
+		Math.min(scrollOffset, lines.length - 1),
+	);
 
 	// Start from the scrollOffset line
 	let startLineIndex = validScrollOffset;

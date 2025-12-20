@@ -10,6 +10,9 @@
 
 ## Bugs
 
+- [ ] Session view shows line instead of log count in navigation
+- [ ] Sparkline timestamps do not match created/modified timestamps
+
 ## Features
 
 - [ ] Add `logdir` arg to CLI (default: ~/.claude/projects)

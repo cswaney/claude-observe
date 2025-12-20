@@ -176,14 +176,18 @@ export function loadSessionLogs(sessionPath) {
 		}
 
 		if (parsed.type === 'tool_use') {
-			parsed['tool_name'] = parsed.raw.message.content[0].name;
+			parsed['toolName'] = parsed.raw.message.content[0].name;
 		}
 
 		if (parsed.type === 'tool_result') {
-			const parentUuid = parsed.raw.message.parentUuid;
-			const parentIndex = parsedLogs.findIndex(l => l.uuid === parentUuid);
+			const toolUseId = parsed.raw.message.content[0].tool_use_id;
+			const parentIndex = parsedLogs.findIndex(l => {
+				if (l.type === "tool_use") {
+					return l.raw.message.content[0].id === toolUseId;
+				}
+			});
 			if (parentIndex >= 0) {
-				const toolName = parsedLogs[parentIndex].tool_name;
+				const toolName = parsedLogs[parentIndex].toolName;
 				parsed['toolName'] = toolName;
 			} else {
 				// Parent tool_use not found, use a placeholder

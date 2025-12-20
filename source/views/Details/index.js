@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { TitledBox } from '@mishieck/ink-titled-box';
+import { useScrollableText } from '../../hooks/useScrollableText.js';
 
 function typeDisplay(log) {
-	if (log.type === 'tool_use' && log.toolName) {
+	if (log.type === 'tool_use' || log.type === 'tool_result' && log.toolName) {
 		return `Tool (${log.toolName})`;
 	} else if (log.type === 'thinking') {
 		return 'Thinking';
@@ -12,6 +13,49 @@ function typeDisplay(log) {
 	} else if (log.type === 'assistant') {
 		return 'Assistant';
 	}
+}
+
+// Helper: Expand \n and \t within JSON string values
+// This prevents extremely long lines that would overflow the viewport
+function expandJsonStringEscapes(jsonText) {
+	let result = '';
+	let inString = false;
+	let escaped = false;
+
+	for (let i = 0; i < jsonText.length; i++) {
+		const char = jsonText[i];
+		const prevChar = i > 0 ? jsonText[i - 1] : '';
+
+		// Track if we're inside a string
+		if (char === '"' && !escaped) {
+			inString = !inString;
+			result += char;
+			escaped = false;
+			continue;
+		}
+
+		// Handle escape sequences
+		if (inString && char === '\\' && !escaped) {
+			escaped = true;
+			continue; // Don't add the backslash yet
+		}
+
+		if (escaped) {
+			// We're processing an escape sequence
+			if (char === 'n') {
+				result += '\n'; // Expand \n to actual newline
+			} else {
+				// Other escapes (e.g., \", \\, \t) - keep as-is
+				// Note: literal tabs are already replaced globally before this function
+				result += '\\' + char;
+			}
+			escaped = false;
+		} else {
+			result += char;
+		}
+	}
+
+	return result;
 }
 
 function timestampDisplay(log) {
@@ -54,45 +98,124 @@ function formatTokens(count) {
 	return count.toString();
 }
 
-function HighlightedJSON({ line }) {
+function HighlightedJSON({ line, inString }) {
 	// Parse the line to identify JSON syntax elements
+	// inString indicates if we're continuing a string from a previous line
 	const tokens = [];
 	let currentIndex = 0;
-
-	// Regex patterns for different JSON elements
-	const patterns = [
-		{ regex: /"([^"\\]|\\.)*"\s*:/, type: 'key' }, // JSON keys
-		{ regex: /"([^"\\]|\\.)*"/, type: 'string' }, // String values
-		{ regex: /\b(true|false|null)\b/, type: 'keyword' }, // Keywords
-		{ regex: /-?\d+\.?\d*/, type: 'number' }, // Numbers
-		{ regex: /[{}\[\],:]/, type: 'punctuation' }, // Punctuation
-	];
+	let insideString = inString;
 
 	while (currentIndex < line.length) {
-		let matched = false;
+		const char = line[currentIndex];
 
-		for (const pattern of patterns) {
-			const regex = new RegExp(`^${pattern.regex.source}`);
-			const match = line.slice(currentIndex).match(regex);
+		if (insideString) {
+			// We're inside a multi-line string value
+			// Look for the closing quote (not escaped)
+			let stringEnd = currentIndex;
+			let escaped = false;
 
-			if (match) {
-				const text = match[0];
-				tokens.push({ text, type: pattern.type });
-				currentIndex += text.length;
-				matched = true;
+			while (stringEnd < line.length) {
+				if (line[stringEnd] === '\\' && !escaped) {
+					escaped = true;
+					stringEnd++;
+					continue;
+				}
+				if (line[stringEnd] === '"' && !escaped) {
+					// Found closing quote
+					tokens.push({
+						text: line.slice(currentIndex, stringEnd + 1),
+						type: 'string',
+					});
+					currentIndex = stringEnd + 1;
+					insideString = false;
+					break;
+				}
+				escaped = false;
+				stringEnd++;
+			}
+
+			if (insideString) {
+				// No closing quote found, entire rest of line is string
+				tokens.push({
+					text: line.slice(currentIndex),
+					type: 'string',
+				});
 				break;
 			}
-		}
+		} else {
+			// Normal JSON parsing
+			let matched = false;
 
-		if (!matched) {
-			// No pattern matched, add as plain text
-			tokens.push({ text: line[currentIndex], type: 'plain' });
-			currentIndex++;
+			// Check for opening quote (start of string/key)
+			if (char === '"') {
+				let stringEnd = currentIndex + 1;
+				let escaped = false;
+
+				while (stringEnd < line.length) {
+					if (line[stringEnd] === '\\' && !escaped) {
+						escaped = true;
+						stringEnd++;
+						continue;
+					}
+					if (line[stringEnd] === '"' && !escaped) {
+						// Found closing quote
+						const fullString = line.slice(currentIndex, stringEnd + 1);
+						// Check if it's a key (followed by :)
+						const afterQuote = line.slice(stringEnd + 1).match(/^\s*:/);
+						tokens.push({
+							text: afterQuote ? fullString + afterQuote[0] : fullString,
+							type: afterQuote ? 'key' : 'string',
+						});
+						currentIndex = stringEnd + 1 + (afterQuote ? afterQuote[0].length : 0);
+						matched = true;
+						break;
+					}
+					escaped = false;
+					stringEnd++;
+				}
+
+				if (!matched) {
+					// No closing quote - multi-line string starts here
+					tokens.push({
+						text: line.slice(currentIndex),
+						type: 'string',
+					});
+					insideString = true;
+					break;
+				}
+			}
+
+			if (!matched) {
+				// Try other patterns
+				const patterns = [
+					{ regex: /\b(true|false|null)\b/, type: 'keyword' },
+					{ regex: /-?\d+\.?\d*/, type: 'number' },
+					{ regex: /[{}\[\],:]/, type: 'punctuation' },
+					{ regex: /\s+/, type: 'whitespace' },
+				];
+
+				for (const pattern of patterns) {
+					const regex = new RegExp(`^${pattern.regex.source}`);
+					const match = line.slice(currentIndex).match(regex);
+
+					if (match) {
+						tokens.push({ text: match[0], type: pattern.type });
+						currentIndex += match[0].length;
+						matched = true;
+						break;
+					}
+				}
+
+				if (!matched) {
+					tokens.push({ text: char, type: 'plain' });
+					currentIndex++;
+				}
+			}
 		}
 	}
 
 	return (
-		<Text>
+		<Text wrap="truncate-end">
 			{tokens.map((token, idx) => {
 				switch (token.type) {
 					case 'key':
@@ -125,6 +248,8 @@ function HighlightedJSON({ line }) {
 								{token.text}
 							</Text>
 						);
+					case 'whitespace':
+						return <Text key={idx}>{token.text}</Text>;
 					default:
 						return <Text key={idx}>{token.text}</Text>;
 				}
@@ -136,42 +261,89 @@ function HighlightedJSON({ line }) {
 export default function Details({ log, width, contentHeight = 30 }) {
 	const [scrollOffset, setScrollOffset] = useState(0);
 
-	let contentLines = [];
-	let isJSON = false;
+	// Extract content as text string (not lines array)
+	// Memoize to avoid recalculating on every render
+	const { contentText, isJSON } = useMemo(() => {
+		let text = '';
+		let json = false;
 
-	if (log.type === 'tool_use') {
-		const content = log.raw.message?.content?.[0].input;
-		if (typeof content === 'string') {
-			contentLines = content.split('\n');
-		} else {
-			contentLines = JSON.stringify(content, null, 2).split('\n');
-			isJSON = true;
-		}
-		// if (log.toolInput) {
-		// 	contentLines = JSON.stringify(log.toolInput, null, 2).split('\n');
-		// 	isJSON = true;
-		// }
-	} else if (log.type === "tool_result") {
-		if (log.toolUseResult) {
-			if (typeof log.toolUseResult === 'string') {
-				contentLines = log.toolUseResult.split('\n');
+		if (log.type === 'tool_use') {
+			const content = log.raw.message?.content?.[0].input;
+			if (typeof content === 'string') {
+				text = content;
 			} else {
-				contentLines = JSON.stringify(log.toolUseResult, null, 2).split('\n');
-				isJSON = true;
+				text = JSON.stringify(content, null, 2);
+				json = true;
+			}
+		} else if (log.type === 'tool_result') {
+			if (log.toolUseResult) {
+				if (typeof log.toolUseResult === 'string') {
+					text = log.toolUseResult;
+				} else {
+					text = JSON.stringify(log.toolUseResult, null, 2);
+					json = true;
+				}
+			}
+		} else {
+			text = log.content || '';
+		}
+
+		// FIRST: Replace literal tab characters with spaces
+		// Tab characters expand unpredictably in terminals and break width calculations
+		text = text.replace(/\t/g, '  ');
+
+		// THEN: Preprocess text: expand escaped newlines
+		// For JSON: Only expand escapes within string values to prevent breaking syntax highlighting
+		// For plain text: Expand all escapes globally
+		if (json) {
+			text = expandJsonStringEscapes(text);
+		} else {
+			text = text.replace(/\\n/g, '\n');  // Escaped newlines → actual newlines
+		}
+
+		return { contentText: text, isJSON: json };
+	}, [log]);
+
+	// Calculate string state for each line (for multi-line JSON strings)
+	const lineStringStates = useMemo(() => {
+		if (!isJSON) return [];
+
+		const lines = contentText.split('\n');
+		const states = [];
+		let inString = false;
+
+		for (const line of lines) {
+			states.push(inString);
+
+			// Update state for next line
+			let escaped = false;
+			for (let i = 0; i < line.length; i++) {
+				const char = line[i];
+				if (char === '\\' && !escaped) {
+					escaped = true;
+				} else if (char === '"' && !escaped) {
+					inString = !inString;
+					escaped = false;
+				} else {
+					escaped = false;
+				}
 			}
 		}
-	} else {
-		contentLines = (log.content || '').split('\n');
-	}
 
-	const totalLines = contentLines.length;
-	const maxOffset = Math.max(0, totalLines - contentHeight);
-	const visibleLines = contentLines.slice(
+		return states;
+	}, [contentText, isJSON]);
+
+	// Simple approach: assume each line = 1 row, let Ink truncate overflow
+	const getLineHeight = useCallback(() => 1, []);
+
+	// Use the scrollable text hook
+	const viewport = useScrollableText({
+		text: contentText,
 		scrollOffset,
-		scrollOffset + contentHeight,
-	);
-	const hasLinesAbove = scrollOffset > 0;
-	const hasLinesBelow = scrollOffset + contentHeight < totalLines;
+		height: contentHeight,
+		width,
+		getLineHeight,
+	});
 
 	useEffect(() => {
 		setScrollOffset(0);
@@ -181,15 +353,15 @@ export default function Details({ log, width, contentHeight = 30 }) {
 		if (key.upArrow) {
 			setScrollOffset(prev => Math.max(0, prev - 1));
 		} else if (key.downArrow) {
-			setScrollOffset(prev => Math.min(maxOffset, prev + 1));
+			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 1));
 		} else if (input === 'u') {
 			setScrollOffset(prev => Math.max(0, prev - 10));
 		} else if (input === 'd') {
-			setScrollOffset(prev => Math.min(maxOffset, prev + 10));
+			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 10));
 		} else if (input === 't') {
 			setScrollOffset(0);
 		} else if (input === 'b') {
-			setScrollOffset(maxOffset);
+			setScrollOffset(viewport.maxScrollOffset);
 		}
 
 		return;
@@ -270,27 +442,35 @@ export default function Details({ log, width, contentHeight = 30 }) {
 					marginTop={1}
 					height={contentHeight}
 				>
-					{hasLinesAbove && (
+					{viewport.hasLinesAbove && (
 						<Box width={width - 8} height={1}>
-							<Text dimColor>... {scrollOffset} more above ...</Text>
+							<Text dimColor>... {viewport.rowsAbove} rows above ...</Text>
 						</Box>
 					)}
-					{visibleLines.map((line, idx) =>
+					{viewport.visibleLines.map((line, idx) =>
 						isJSON ? (
-							<HighlightedJSON key={idx} line={line} />
+							<Box key={idx}>
+								<Box width={6}>
+									<Text dimColor>[{viewport.startLineIndex + idx}]</Text>
+								</Box>
+								<HighlightedJSON
+									line={line}
+									inString={lineStringStates[viewport.startLineIndex + idx] || false}
+								/>
+							</Box>
 						) : (
 							<Box key={idx}>
 								<Box width={6}>
-									<Text dimColor>[{scrollOffset + idx}]</Text>
+									<Text dimColor>[{viewport.startLineIndex + idx}]</Text>
 								</Box>
-								<Text> {line}</Text>
+								<Text wrap="truncate-end"> {line}</Text>
 							</Box>
 						),
 					)}
-					{hasLinesBelow && (
+					{viewport.hasLinesBelow && (
 						<Box width={width - 8} height={2}>
 							<Text dimColor>
-								... {totalLines - (scrollOffset + contentHeight)} more below ...
+								... {viewport.rowsBelow} rows below ...
 							</Text>
 						</Box>
 					)}
@@ -300,18 +480,17 @@ export default function Details({ log, width, contentHeight = 30 }) {
 			{/* Navigation */}
 			<Box justifyContent="center" marginTop={1}>
 				<Text dimColor>
-					Esc: Back | ←/→: Prev/Next Log (offset: {scrollOffset}, lines:{' '}
-					{visibleLines.length}, hasLinesAbove: {String(hasLinesAbove)},
-					hasLinesBelow: {String(hasLinesBelow)})
+					Esc: Back | ←/→: Prev/Next Log (offset: {scrollOffset}/{viewport.maxScrollOffset}, lines:{' '}
+					{viewport.startLineIndex}-{viewport.endLineIndex}/{viewport.totalLines - 1})
 				</Text>
 			</Box>
 
 			{/* Debug */}
 			<Box justifyContent="center" marginTop={1}>
 				<Text dimColor>
-					[DEBUG] offset: {scrollOffset}, lines: {visibleLines.length},
-					hasLinesAbove: {String(hasLinesAbove)}, hasLinesBelow:{' '}
-					{String(hasLinesBelow)})
+					[DEBUG] offset: {scrollOffset}, visible: {viewport.visibleLines.length},
+					rowsAbove: {viewport.rowsAbove}, rowsBelow: {viewport.rowsBelow},
+					hasAbove: {String(viewport.hasLinesAbove)}, hasBelow: {String(viewport.hasLinesBelow)}
 				</Text>
 			</Box>
 		</Box>

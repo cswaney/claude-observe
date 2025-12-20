@@ -3,7 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import { TitledBox } from '@mishieck/ink-titled-box';
 
 function typeDisplay(log) {
-	if (log.type === 'tool' && log.toolName) {
+	if (log.type === 'tool_use' && log.toolName) {
 		return `Tool (${log.toolName})`;
 	} else if (log.type === 'thinking') {
 		return 'Thinking';
@@ -224,31 +224,31 @@ export default function Details({ log, width, contentHeight = 30 }) {
 					</Box>
 					<Box>
 						<Text dimColor>Version: </Text>
-						<Text>{log.rawLog?.version || 'N/A'}</Text>
+						<Text>{log.raw?.version || 'N/A'}</Text>
 					</Box>
 					{(log.type === 'assistant' ||
-						log.type === 'tool' ||
+						log.type === 'tool_use' ||
 						log.type === 'thinking') && (
 							<Box>
 								<Text dimColor>Model: </Text>
-								<Text>{log.rawLog?.message?.model || 'N/A'}</Text>
+								<Text>{log.raw?.message?.model || 'N/A'}</Text>
 							</Box>
 						)}
 					{(log.type === 'assistant' ||
-						log.type === 'tool' ||
+						log.type === 'tool_use' ||
 						log.type === 'thinking') &&
 						log.usage !== undefined && (
 							<Box>
 								<Text dimColor>Usage: </Text>
-								<Text>{formatUsage(log.usage, log.rawLog)}</Text>
+								<Text>{formatUsage(log.usage, log.raw)}</Text>
 							</Box>
 						)}
 					{(log.type === 'assistant' ||
-						log.type === 'tool' ||
+						log.type === 'tool_use' ||
 						log.type === 'thinking') && (
 							<Box>
 								<Text dimColor>Stop Reason: </Text>
-								<Text>{log.rawLog?.message?.stop_reason || 'None'}</Text>
+								<Text>{log.raw?.message?.stop_reason || 'None'}</Text>
 							</Box>
 						)}
 				</TitledBox>

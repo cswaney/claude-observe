@@ -250,9 +250,7 @@ function TokenSparklines({ session, width = 120, height = 3 }) {
 	const yMax = Math.max(...binsByType.flat());
 
 	return (
-		<Box flexDirection="column" padding={1}>
-
-			{/* Normalized chart */}
+		<Box flexDirection="column">
 			<TitledBox
 				borderStyle="single"
 				borderColor="gray"
@@ -260,7 +258,6 @@ function TokenSparklines({ session, width = 120, height = 3 }) {
 				paddingBottom={0}
 				titles={["Activity (Normalized)"]}
 				width={width}
-				marginTop={1}
 			>
 				<Box flexDirection="column" marginTop={-1}>
 					{logTypes.map(({ name, color, label }, idx) => {
@@ -378,7 +375,7 @@ export default function Summary({ session, width = 80 }) {
 
 			<TokenSparklines
 				session={session}
-				width={120}
+				width={width - 4}
 			/>
 		</Box>
 	);

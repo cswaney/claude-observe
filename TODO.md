@@ -1,5 +1,9 @@
 # TODO
 
+## Dev
+
+- [ ] Switch to Jest + Testing Library [React]
+
 ## Bug
 
 - [ ] Multiple logs displayed using `<-/->` is details view. After pressing `->` a few times, a second log detail box is displayed below the first. These can accumulate after multiple key presses.
@@ -47,6 +51,50 @@
 - [ ] Allow users to delete sessions? projects?
 - [ ] Live data updates!
 
+### Navigation
+
+**Issue**: Left/right arrow keys work differently across views, creating inconsistent navigation patterns.
+
+**Solution**: Use Shift+arrows for sequential navigation, plain arrows for hierarchical navigation.
+
+**Unified Navigation Scheme**:
+
+```
+Browser view:
+  ↑/↓: Navigate sessions
+  →/Enter: Open selected session
+  ←: (unused)
+  Esc: Exit app
+  u/d/t/b: Jump scrolling (down 10, up 10, top, bottom)
+
+Session view:
+  ↑/↓: Navigate logs
+  →: Open detail view / navigate to agent session
+  ←: Return to Browser
+  Enter: Expand/collapse log
+  Esc: Return to Browser
+  u/d/t/b: Jump scrolling
+  1-5: Toggle filters
+  /: Search
+  a/c: Expand/collapse all
+
+Detail view:
+  ↑/↓: Scroll content
+  ←: Return to Session view
+  →: (unused, or also return to session for symmetry)
+  Shift+←: Previous log
+  Shift+→: Next log
+  Esc: Return to Session view
+  u/d/t/b: Jump scrolling (page up/down)
+```
+
+**Design Principles**:
+
+- **Plain arrows**: Hierarchical navigation (in/out of views, up/down within lists)
+- **Shift+arrows**: Sequential navigation at same level (between logs in detail view)
+- **Escape**: Always returns to Browser (universal "exit" behavior)
+- **u/d/t/b**: Jump scrolling works consistently across all scrollable lists/content
+
 ### Browser
 
 - [x] Filter sessions by project, created, modified
@@ -55,7 +103,7 @@
 
 ### Session
 
-- [ ] Left arrow returns to Browser
+- [ ] Left arrow returns to Browser?
 - [x] Combine components into a single Box
 
 ```shell
@@ -136,6 +184,26 @@
 - [ ] Center instructions
 - [ ] Reformat info display
 - [ ] Prev-Next navigation
+- [ ] Consider removing `wrap="truncate-end"` in favor of proper text wrapping
+
+**Context**: Currently using `wrap="truncate-end"` on Text components in Details view to prevent text from wrapping and breaking box boundaries. This was necessary because:
+1. Tool results contain `JSON.stringify()` output with literal tab characters (`\t`)
+2. These literal tabs expand to 4-8 columns in terminals, breaking width calculations
+3. Even with preprocessing to expand escaped characters (`\\n`, `\\t`), literal tabs from source code remain
+4. Text wrapping in Ink was causing content to overflow TitledBox boundaries
+
+**Current solution** (lines 170, 294 in [Details/index.js](source/views/Details/index.js)):
+- Replace literal tabs with 2 spaces: `text = text.replace(/\t/g, '  ')`
+- Use `wrap="truncate-end"` to prevent Ink's automatic wrapping
+- Set `getLineHeight = () => 1` (each line = exactly 1 row)
+
+**Tradeoff**: Long lines get truncated instead of wrapped, potentially hiding content.
+
+**Future improvement**: Implement proper manual text wrapping that:
+- Calculates wrapping based on available width
+- Accounts for all UI chrome (gutter, padding, borders)
+- Updates viewport calculations to handle multi-row lines
+- Ensures wrapped content stays within box boundaries
 
 #### Tool
 

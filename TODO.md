@@ -6,6 +6,13 @@
 - [ ] Add CI/CD
 - [x] Add pre-commit/dev scripts
 - [ ] Ship as binary?
+- [ ] Publishing to npm
+  - Add `prepublishOnly` script to auto-build before publish
+  - Add metadata: description, repository, keywords, author
+  - Create README with installation and usage
+  - Use `npm publish --dry-run` to test
+  - Use `npm version patch|minor|major` to bump version
+  - Publish with `npm publish --access public`
 
 ## Bugs
 

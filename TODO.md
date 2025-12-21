@@ -28,6 +28,37 @@
 - [x] Filter sessions by project, created, modified
 - [ ] Sort sessions by project, created, modified, logs, tokens
 - [x] Auto color all sessions with same project as the currently selected session
+- [ ] Explorer mode
+
+```shell
+claude-observe -s <pattern>
+```
+
+where `-s, --session` option jumpbs directly to the session ID view.
+
+- [ ] Query mode
+
+```shell
+claude-observe find [query]
+```
+
+where `query` is a JSON query string, e.g.,
+
+```javascript
+{
+  "type": "user",
+  "message": {
+    "content": [
+      {
+        "content": $MATCHES("Hello"),
+      }
+    ]
+  }
+}
+```
+
+means "find any message that matches this structure". This command returns the matches logs "as-is",
+i.e., as jsonl-formatted strings.
 
 ## Refactor
 

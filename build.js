@@ -1,5 +1,5 @@
+import {readFileSync} from 'node:fs';
 import * as esbuild from 'esbuild';
-import {readFileSync} from 'fs';
 
 // Read version from package.json
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
@@ -11,6 +11,7 @@ await esbuild.build({
 	format: 'esm',
 	target: 'node16',
 	outfile: 'dist/cli.js',
+	sourcemap: true, // Generate source maps for better debugging
 	loader: {
 		'.js': 'jsx', // Enable JSX in .js files
 	},

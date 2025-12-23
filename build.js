@@ -12,6 +12,7 @@ await esbuild.build({
 	target: 'node16',
 	outfile: 'dist/cli.js',
 	sourcemap: true, // Generate source maps for better debugging
+	jsx: 'automatic', // Use modern JSX transform (React 17+)
 	loader: {
 		'.js': 'jsx', // Enable JSX in .js files
 	},

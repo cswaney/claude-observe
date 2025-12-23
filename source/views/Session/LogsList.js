@@ -1,4 +1,3 @@
-import React from 'react';
 import {Box, Text} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
 
@@ -25,7 +24,7 @@ export default function LogsList({
 	endIndex = null,
 }) {
 	// Track active agents and assign colors
-	const activeAgents = new Map(); // agentId -> { pos, color }
+	const activeAgents = new Map(); // AgentId -> { pos, color }
 	const agentColorMap = new Map();
 	let colorIndex = 0;
 
@@ -45,7 +44,7 @@ export default function LogsList({
 
 		// Determine row color based on log type (matching summary charts)
 		const getRowColor = log => {
-			if (log.type === 'assistant') return '#2ecc71'; // green
+			if (log.type === 'assistant') return '#2ecc71'; // Green
 			if (
 				log.type === 'tool' ||
 				log.type === 'tool_use' ||
@@ -53,7 +52,7 @@ export default function LogsList({
 			)
 				return TOOL_COLOR;
 			if (log.type === 'thinking') return THINKING_COLOR;
-			return null; // user and other types have no color
+			return null; // User and other types have no color
 		};
 
 		const rowColor = getRowColor(log);
@@ -67,28 +66,30 @@ export default function LogsList({
 				);
 				colorIndex++;
 			}
+
 			// Calculate arrow length: minimum 24 dashes, then +2 for each additional agent
 			// Find the lowest available position index by checking which indices are in use
 			const usedIndices = new Set(
-				Array.from(activeAgents.values()).map(agent => (agent.pos - 24) / 2),
+				[...activeAgents.values()].map(agent => (agent.pos - 24) / 2),
 			);
 			let agentIndex = 0;
 			while (usedIndices.has(agentIndex)) {
 				agentIndex++;
 			}
+
 			const arrowLength = 24 + agentIndex * 2;
 
 			activeAgents.set(log.agentId, {
 				pos: arrowLength, // Position where the vertical bar will be (in dashes)
 				color: agentColorMap.get(log.agentId),
-				index: index,
+				index,
 			});
 		}
 
 		// Build vertical bars suffix (comes AFTER the message content)
 		// Returns JSX with colored bars positioned at exact arrow endpoint positions
 		const renderVerticalBarsSuffix = (prefixLength = 0, keyPrefix = '') => {
-			const currentActiveAgents = Array.from(activeAgents.entries());
+			const currentActiveAgents = [...activeAgents.entries()];
 			if (currentActiveAgents.length === 0) return null;
 
 			// Sort agents by position
@@ -97,7 +98,7 @@ export default function LogsList({
 			);
 
 			// Filter out agents whose bars would be covered by the prefix (to the left)
-			const visibleAgents = sortedAgents.filter(([agentId, agent]) => {
+			const visibleAgents = sortedAgents.filter(([_, agent]) => {
 				const targetIdx = 11 + agent.pos;
 				return targetIdx >= prefixLength; // Only show bars at or after the prefix
 			});
@@ -106,10 +107,10 @@ export default function LogsList({
 
 			// Calculate spacing: "* subagent " is 11 chars (indices 0-10), then dashes, then "│"
 			// The bar "│" itself is at index (11 + agent.pos) in 0-indexed
-			let result = [];
+			const result = [];
 			let currentPos = prefixLength;
 
-			visibleAgents.forEach(([agentId, agent]) => {
+			for (const [agentId, agent] of visibleAgents) {
 				const targetIdx = 11 + agent.pos; // 0-indexed position where "│" should be
 				const spacing = targetIdx - currentPos;
 				result.push(
@@ -118,9 +119,9 @@ export default function LogsList({
 					</Text>,
 				);
 				currentPos = targetIdx + 1;
-			});
+			}
 
-			return <>{result}</>;
+			return result;
 		};
 
 		// Render subagent stop arrow
@@ -141,7 +142,7 @@ export default function LogsList({
 			const textBeforeArrow = `   end`;
 			const timestamp = `[${formattedTime}]`;
 			const arrow = ' ◂' + '─'.repeat(dashCount);
-			const totalPrefixLen =
+			const totalPrefixLength =
 				textBeforeArrow.length + timestamp.length + arrow.length;
 
 			// Remove this agent before rendering suffix bars so it doesn't show its own bar
@@ -155,10 +156,9 @@ export default function LogsList({
 							{timestamp}
 						</Text>
 						{textBeforeArrow}
-						{arrow}
-						{'╯'}
+						{arrow}╯
 					</Text>
-					{renderVerticalBarsSuffix(totalPrefixLen + 1, `${log.id}-stop`)}
+					{renderVerticalBarsSuffix(totalPrefixLength + 1, `${log.id}-stop`)}
 				</Box>
 			);
 		};
@@ -189,8 +189,7 @@ export default function LogsList({
 							<Text bold={isSelected} dimColor={!isSelected}>
 								[{formattedTime}]
 							</Text>{' '}
-							• agent: {log.agentId} {'─'.repeat(dashCount)}
-							{'╮'}
+							• agent: {log.agentId} {'─'.repeat(dashCount)}╮
 						</Text>
 						{renderVerticalBarsSuffix(arrowEndPos, `${log.id}-start-title`)}
 					</Box>
@@ -200,7 +199,7 @@ export default function LogsList({
 						<Box>
 							<Text dimColor color={agent?.color}>
 								{' '}
-								"{logContent}"
+								{`"${logContent}"`}
 							</Text>
 							{renderVerticalBarsSuffix(
 								4 + 1 + logContent.length + 1,
@@ -213,11 +212,11 @@ export default function LogsList({
 		}
 
 		// Regular log entries (user, assistant, tool, thinking)
-		let displayTitle = log.type;
-		let displayColor = rowColor || 'white';
+		const displayTitle = log.type;
+		const displayColor = rowColor || 'white';
 
-		let selectIconBefore = '> ';
-		let selectIconAfter = '⌄ ';
+		const selectIconBefore = '> ';
+		const selectIconAfter = '⌄ ';
 
 		// Generate preview for title line (only when collapsed)
 		// Don't show preview for tool_result as content format varies by tool
@@ -229,18 +228,18 @@ export default function LogsList({
 			// Calculate available width for preview
 			// Format: "[HH:MM:SS] > displayTitle preview"
 			const prefixLength =
-				1 + formattedTime.length + 2 + 2 + displayTitle.length + 1; // brackets, spaces, arrow
+				1 + formattedTime.length + 2 + 2 + displayTitle.length + 1; // Brackets, spaces, arrow
 			const availableWidth = Math.max(0, width - prefixLength - 12); // -7 buffer for borders/padding
 			const preview =
 				firstLine.length > availableWidth
-					? firstLine.substring(0, availableWidth) + '...'
+					? firstLine.slice(0, Math.max(0, availableWidth)) + '...'
 					: firstLine;
 			previewText = isCollapsed && preview ? ` ${preview}` : '';
 		}
 
 		// Calculate indentation for expanded content to align with title
 		// Format: "[HH:MM:SS] > title"
-		const contentIndent = ' '.repeat(1 + formattedTime.length + 2 + 2); // align with title
+		const contentIndent = ' '.repeat(1 + formattedTime.length + 2 + 2); // Align with title
 
 		// Don't allow expansion for tool_result items (content format varies by tool)
 		const hasExpandableContent =
@@ -288,13 +287,14 @@ export default function LogsList({
 								0,
 								width - contentIndent.length - 7,
 							); // -7 buffer for borders/padding
-							return lines
-								.map((line, idx) => {
+							return [
+								...lines.map((line, idx) => {
 									const displayLine =
 										line.length > maxLineLength
-											? line.substring(0, maxLineLength) + '...'
+											? line.slice(0, Math.max(0, maxLineLength)) + '...'
 											: line;
 									return (
+										/* eslint-disable-next-line react/no-array-index-key */
 										<Box key={`${log.id}-content-${idx}`}>
 											<Text dimColor wrap="truncate" color={displayColor}>
 												{contentIndent}
@@ -306,22 +306,21 @@ export default function LogsList({
 											)}
 										</Box>
 									);
-								})
-								.concat(
-									hasMore ? (
-										<Box key={`${log.id}-more`}>
-											<Text dimColor color={displayColor}>
-												{contentIndent}...
-											</Text>
-											{renderVerticalBarsSuffix(
-												contentIndent.length + 3,
-												`${log.id}-more`,
-											)}
-										</Box>
-									) : (
-										[]
-									),
-								);
+								}),
+								...(hasMore
+									? [
+											<Box key={`${log.id}-more`}>
+												<Text dimColor color={displayColor}>
+													{contentIndent}...
+												</Text>
+												{renderVerticalBarsSuffix(
+													contentIndent.length + 3,
+													`${log.id}-more`,
+												)}
+											</Box>,
+									  ]
+									: []),
+							];
 						})()}
 					</Box>
 				)}
@@ -331,13 +330,12 @@ export default function LogsList({
 
 	return (
 		<TitledBox
+			key={listViewKey}
 			borderStyle="single"
 			borderColor="gray"
 			padding={1}
-			paddingBottom={0}
-			// marginTop={1}
-			key={listViewKey}
 			titles={['Logs']}
+			paddingBottom={0}
 		>
 			<Box flexDirection="column">
 				{/* Overflow indicator - items above */}

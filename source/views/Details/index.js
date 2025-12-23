@@ -6,11 +6,17 @@ import {useScrollableText} from '../../hooks/useScrollableText.js';
 function typeDisplay(log) {
 	if (log.type === 'tool_use' || (log.type === 'tool_result' && log.toolName)) {
 		return `Tool (${log.toolName})`;
-	} else if (log.type === 'thinking') {
+	}
+
+	if (log.type === 'thinking') {
 		return 'Thinking';
-	} else if (log.type === 'user') {
+	}
+
+	if (log.type === 'user') {
 		return 'User';
-	} else if (log.type === 'assistant') {
+	}
+
+	if (log.type === 'assistant') {
 		return 'Assistant';
 	}
 }
@@ -22,10 +28,7 @@ function expandJsonStringEscapes(jsonText) {
 	let inString = false;
 	let escaped = false;
 
-	for (let i = 0; i < jsonText.length; i++) {
-		const char = jsonText[i];
-		const prevChar = i > 0 ? jsonText[i - 1] : '';
-
+	for (const char of jsonText) {
 		// Track if we're inside a string
 		if (char === '"' && !escaped) {
 			inString = !inString;
@@ -42,13 +45,11 @@ function expandJsonStringEscapes(jsonText) {
 
 		if (escaped) {
 			// We're processing an escape sequence
-			if (char === 'n') {
-				result += '\n'; // Expand \n to actual newline
-			} else {
-				// Other escapes (e.g., \", \\, \t) - keep as-is
-				// Note: literal tabs are already replaced globally before this function
-				result += '\\' + char;
-			}
+			result +=
+				char === 'n'
+					? '\n' // Expand \n to actual newline
+					: '\\' + char; // Other escapes (e.g., \", \\, \t) - keep as-is
+
 			escaped = false;
 		} else {
 			result += char;
@@ -59,7 +60,7 @@ function expandJsonStringEscapes(jsonText) {
 }
 
 function timestampDisplay(log) {
-	// log.timestamp is now ISO format, format it for display
+	// Log.timestamp is now ISO format, format it for display
 	return new Date(log.timestamp).toLocaleString();
 }
 
@@ -68,17 +69,17 @@ function formatUsage(usage, rawLog) {
 
 	// Extract usage from raw log if available
 	const message = rawLog?.message;
-	const usageObj = message?.usage;
+	const usageObject = message?.usage;
 
-	if (!usageObj) {
+	if (!usageObject) {
 		// Fallback: just show total
 		return `${formatTokens(usage)} total`;
 	}
 
-	const input = usageObj.input_tokens || 0;
-	const output = usageObj.output_tokens || 0;
-	const cacheRead = usageObj.cache_read_input_tokens || 0;
-	const cacheWrite = usageObj.cache_creation_input_tokens || 0;
+	const input = usageObject.input_tokens || 0;
+	const output = usageObject.output_tokens || 0;
+	const cacheRead = usageObject.cache_read_input_tokens || 0;
+	const cacheWrite = usageObject.cache_creation_input_tokens || 0;
 
 	const total = input + output + cacheRead + cacheWrite;
 
@@ -90,11 +91,14 @@ function formatUsage(usage, rawLog) {
 }
 
 function formatTokens(count) {
-	if (count >= 1000000) {
-		return (count / 1000000).toFixed(1) + 'M';
-	} else if (count >= 1000) {
+	if (count >= 1_000_000) {
+		return (count / 1_000_000).toFixed(1) + 'M';
+	}
+
+	if (count >= 1000) {
 		return (count / 1000).toFixed(1) + 'k';
 	}
+
 	return count.toString();
 }
 
@@ -120,6 +124,7 @@ function HighlightedJSON({line, inString}) {
 					stringEnd++;
 					continue;
 				}
+
 				if (line[stringEnd] === '"' && !escaped) {
 					// Found closing quote
 					tokens.push({
@@ -130,6 +135,7 @@ function HighlightedJSON({line, inString}) {
 					insideString = false;
 					break;
 				}
+
 				escaped = false;
 				stringEnd++;
 			}
@@ -157,6 +163,7 @@ function HighlightedJSON({line, inString}) {
 						stringEnd++;
 						continue;
 					}
+
 					if (line[stringEnd] === '"' && !escaped) {
 						// Found closing quote
 						const fullString = line.slice(currentIndex, stringEnd + 1);
@@ -171,6 +178,7 @@ function HighlightedJSON({line, inString}) {
 						matched = true;
 						break;
 					}
+
 					escaped = false;
 					stringEnd++;
 				}
@@ -191,7 +199,7 @@ function HighlightedJSON({line, inString}) {
 				const patterns = [
 					{regex: /\b(true|false|null)\b/, type: 'keyword'},
 					{regex: /-?\d+\.?\d*/, type: 'number'},
-					{regex: /[{}\[\],:]/, type: 'punctuation'},
+					{regex: /[{}[\],:]/, type: 'punctuation'},
 					{regex: /\s+/, type: 'whitespace'},
 				];
 
@@ -218,41 +226,55 @@ function HighlightedJSON({line, inString}) {
 	return (
 		<Text wrap="truncate-end">
 			{tokens.map((token, idx) => {
+				const key = `${token.type}-${idx}`;
 				switch (token.type) {
-					case 'key':
+					case 'key': {
 						return (
-							<Text key={idx} color="cyan">
+							<Text key={key} color="cyan">
 								{token.text}
 							</Text>
 						);
-					case 'string':
+					}
+
+					case 'string': {
 						return (
-							<Text key={idx} color="green">
+							<Text key={key} color="green">
 								{token.text}
 							</Text>
 						);
-					case 'keyword':
+					}
+
+					case 'keyword': {
 						return (
-							<Text key={idx} color="magenta">
+							<Text key={key} color="magenta">
 								{token.text}
 							</Text>
 						);
-					case 'number':
+					}
+
+					case 'number': {
 						return (
-							<Text key={idx} color="yellow">
+							<Text key={key} color="yellow">
 								{token.text}
 							</Text>
 						);
-					case 'punctuation':
+					}
+
+					case 'punctuation': {
 						return (
-							<Text key={idx} dimColor>
+							<Text key={key} dimColor>
 								{token.text}
 							</Text>
 						);
-					case 'whitespace':
-						return <Text key={idx}>{token.text}</Text>;
-					default:
-						return <Text key={idx}>{token.text}</Text>;
+					}
+
+					case 'whitespace': {
+						return <Text key={key}>{token.text}</Text>;
+					}
+
+					default: {
+						return <Text key={key}>{token.text}</Text>;
+					}
 				}
 			})}
 		</Text>
@@ -296,11 +318,7 @@ export default function Details({log, width, contentHeight = 30}) {
 		// THEN: Preprocess text: expand escaped newlines
 		// For JSON: Only expand escapes within string values to prevent breaking syntax highlighting
 		// For plain text: Expand all escapes globally
-		if (json) {
-			text = expandJsonStringEscapes(text);
-		} else {
-			text = text.replace(/\\n/g, '\n'); // Escaped newlines → actual newlines
-		}
+		text = json ? expandJsonStringEscapes(text) : text.replace(/\\n/g, '\n'); // Escaped newlines → actual newlines
 
 		return {contentText: text, isJSON: json};
 	}, [log]);
@@ -318,8 +336,7 @@ export default function Details({log, width, contentHeight = 30}) {
 
 			// Update state for next line
 			let escaped = false;
-			for (let i = 0; i < line.length; i++) {
-				const char = line[i];
+			for (const char of line) {
 				if (char === '\\' && !escaped) {
 					escaped = true;
 				} else if (char === '"' && !escaped) {
@@ -352,20 +369,40 @@ export default function Details({log, width, contentHeight = 30}) {
 
 	useInput((input, key) => {
 		if (key.upArrow) {
-			setScrollOffset(prev => Math.max(0, prev - 1));
+			setScrollOffset(previous => Math.max(0, previous - 1));
 		} else if (key.downArrow) {
-			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 1));
-		} else if (input === 'u') {
-			setScrollOffset(prev => Math.max(0, prev - 10));
-		} else if (input === 'd') {
-			setScrollOffset(prev => Math.min(viewport.maxScrollOffset, prev + 10));
-		} else if (input === 't') {
-			setScrollOffset(0);
-		} else if (input === 'b') {
-			setScrollOffset(viewport.maxScrollOffset);
-		}
+			setScrollOffset(previous =>
+				Math.min(viewport.maxScrollOffset, previous + 1),
+			);
+		} else
+			switch (input) {
+				case 'u': {
+					setScrollOffset(previous => Math.max(0, previous - 10));
 
-		return;
+					break;
+				}
+
+				case 'd': {
+					setScrollOffset(previous =>
+						Math.min(viewport.maxScrollOffset, previous + 10),
+					);
+
+					break;
+				}
+
+				case 't': {
+					setScrollOffset(0);
+
+					break;
+				}
+
+				case 'b': {
+					setScrollOffset(viewport.maxScrollOffset);
+
+					break;
+				}
+				// No default
+			}
 	});
 
 	return (
@@ -448,28 +485,27 @@ export default function Details({log, width, contentHeight = 30}) {
 							<Text dimColor>... {viewport.rowsAbove} rows above ...</Text>
 						</Box>
 					)}
-					{viewport.visibleLines.map((line, idx) =>
-						isJSON ? (
-							<Box key={idx}>
+					{viewport.visibleLines.map((line, idx) => {
+						const lineNumber = viewport.startLineIndex + idx;
+						return isJSON ? (
+							<Box key={lineNumber}>
 								<Box width={6}>
-									<Text dimColor>[{viewport.startLineIndex + idx}]</Text>
+									<Text dimColor>[{lineNumber}]</Text>
 								</Box>
 								<HighlightedJSON
 									line={line}
-									inString={
-										lineStringStates[viewport.startLineIndex + idx] || false
-									}
+									inString={lineStringStates[lineNumber] || false}
 								/>
 							</Box>
 						) : (
-							<Box key={idx}>
+							<Box key={lineNumber}>
 								<Box width={6}>
-									<Text dimColor>[{viewport.startLineIndex + idx}]</Text>
+									<Text dimColor>[{lineNumber}]</Text>
 								</Box>
 								<Text wrap="truncate-end"> {line}</Text>
 							</Box>
-						),
-					)}
+						);
+					})}
 					{viewport.hasLinesBelow && (
 						<Box width={width - 8} height={2}>
 							<Text dimColor>... {viewport.rowsBelow} rows below ...</Text>

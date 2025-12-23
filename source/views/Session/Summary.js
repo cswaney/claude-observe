@@ -1,8 +1,8 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
-import {Histogram} from '../../components/Chart';
-import {formatTokens} from '../../utils';
+import {Histogram} from '../../components/Chart.js';
+import {formatTokens} from '../../utils.js';
 
 /**
  *
@@ -28,9 +28,10 @@ function SessionInfo({session, width = 72, height = 9, padding = 1}) {
 		const hours = Math.floor(elapsedSeconds / 3600);
 		const minutes = Math.floor((elapsedSeconds % 3600) / 60);
 		const seconds = elapsedSeconds % 60;
-		const duration = `${String(hours).padStart(2, '0')}:${String(
-			minutes,
-		).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+		duration = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+			2,
+			'0',
+		)}:${String(seconds).padStart(2, '0')}`;
 	}
 
 	return (
@@ -94,20 +95,42 @@ function TokenDistribution({session, width, height = 9, padding = 1}) {
 		subagent: 0,
 	};
 
-	session.logs.forEach(log => {
+	for (const log of session.logs) {
 		const usage = log.usage || 0;
-		if (log.type === 'user') {
-			tokensByType.user += usage;
-		} else if (log.type === 'assistant') {
-			tokensByType.assistant += usage;
-		} else if (log.type === 'tool_use' || log.type === 'tool_result') {
-			tokensByType.tool += usage;
-		} else if (log.type === 'thinking') {
-			tokensByType.thinking += usage;
-		} else if (log.type === 'subagent') {
-			tokensByType.subagent += usage;
+		switch (log.type) {
+			case 'user': {
+				tokensByType.user += usage;
+
+				break;
+			}
+
+			case 'assistant': {
+				tokensByType.assistant += usage;
+
+				break;
+			}
+
+			case 'tool_use':
+			case 'tool_result': {
+				tokensByType.tool += usage;
+
+				break;
+			}
+
+			case 'thinking': {
+				tokensByType.thinking += usage;
+
+				break;
+			}
+
+			case 'subagent': {
+				tokensByType.subagent += usage;
+
+				break;
+			}
+			// No default
 		}
-	});
+	}
 
 	const data = [
 		{label: 'Assistant', value: tokensByType.assistant, color: '#2ecc71'},
@@ -143,8 +166,8 @@ function TokenDistribution({session, width, height = 9, padding = 1}) {
 			{totalUsage > 0 && data.length > 0 && (
 				<Box flexDirection="column">
 					<Box>
-						{stackedBars(data, totalUsage, width - 6).map((segment, idx) => (
-							<Text key={`segment-${idx}`} color={segment.color}>
+						{stackedBars(data, totalUsage, width - 6).map(segment => (
+							<Text key={`segment-${segment.label}`} color={segment.color}>
 								{'█'.repeat(segment.width)}
 							</Text>
 						))}
@@ -152,10 +175,10 @@ function TokenDistribution({session, width, height = 9, padding = 1}) {
 
 					<Box flexDirection="column" marginTop={1} gap={1}>
 						<Box justifyContent="center" gap={2}>
-							{data.slice(0, 2).map((item, idx) => {
+							{data.slice(0, 2).map(item => {
 								const percentage = (item.value / totalUsage) * 100;
 								return (
-									<Box key={`legend-${idx}`} gap={1}>
+									<Box key={`legend-${item.label}`} gap={1}>
 										<Text color={item.color}>█</Text>
 										<Text>{item.label}:</Text>
 										<Text dimColor>{percentage.toFixed(1)}%</Text>
@@ -238,17 +261,18 @@ function TokenSparklines({session, width = 120, height = 3}) {
 
 	const histogram = data => {
 		const xStep = (maxTime - minTime) / chartWidth;
-		const bins = Array(chartWidth).fill(0);
+		const bins = Array.from({length: chartWidth}, () => 0);
 
-		data.x.forEach((value, xIndex) => {
+		for (const [xIndex, value] of data.x.entries()) {
 			let dIndex = Math.floor((value - minTime) / xStep);
 			if (dIndex === chartWidth) {
 				dIndex -= 1;
 			}
+
 			if (dIndex >= 0 && dIndex < chartWidth) {
 				bins[dIndex] += data.y[xIndex];
 			}
-		});
+		}
 
 		return bins;
 	};
@@ -267,7 +291,7 @@ function TokenSparklines({session, width = 120, height = 3}) {
 				width={width}
 			>
 				<Box flexDirection="column" marginTop={-1}>
-					{logTypes.map(({name, color, label}, idx) => {
+					{logTypes.map(({name, color, _}, idx) => {
 						const data = dataByType[idx];
 
 						return (
@@ -331,11 +355,11 @@ function TimeAxisLegend({data, logs, types, totalTokens, width}) {
 		});
 
 		if (isMultiDaySession) {
-			const dateStr = date.toLocaleDateString('en-US', {
+			const dateString = date.toLocaleDateString('en-US', {
 				month: 'short',
 				day: 'numeric',
 			});
-			return `${dateStr} ${time}`;
+			return `${dateString} ${time}`;
 		}
 
 		return time;

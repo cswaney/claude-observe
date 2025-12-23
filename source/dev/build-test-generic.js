@@ -1,5 +1,5 @@
+import path from 'node:path';
 import * as esbuild from 'esbuild';
-import path from 'path';
 
 // Get the entry point from command line arguments
 const entryPoint = process.argv[2];

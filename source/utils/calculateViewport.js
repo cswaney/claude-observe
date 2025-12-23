@@ -42,8 +42,8 @@ export function calculateViewport({
 
 	// Calculate cumulative heights for efficient range queries
 	const cumulativeHeights = [0];
-	for (let i = 0; i < itemHeights.length; i++) {
-		cumulativeHeights.push(cumulativeHeights[i] + itemHeights[i]);
+	for (const [i, itemHeight] of itemHeights.entries()) {
+		cumulativeHeights.push(cumulativeHeights[i] + itemHeight);
 	}
 
 	const totalHeight = cumulativeHeights[cumulativeHeights.length - 1];
@@ -78,7 +78,7 @@ export function calculateViewport({
 		const halfAvailableHeight = Math.floor((height - selectedHeight) / 2);
 
 		// Calculate the ideal start height (cumulative height where we want to start)
-		let targetStartHeight = selectedStartHeight - halfAvailableHeight;
+		const targetStartHeight = selectedStartHeight - halfAvailableHeight;
 
 		// Clamp to beginning if needed
 		if (targetStartHeight <= 0) {
@@ -91,6 +91,7 @@ export function calculateViewport({
 					endIndex = i - 1;
 					break;
 				}
+
 				viewportHeight += itemHeights[i];
 				endIndex = i;
 			}
@@ -104,9 +105,11 @@ export function calculateViewport({
 					startIndex = i + 1;
 					break;
 				}
+
 				viewportHeight += itemHeights[i];
 				startIndex = i;
 			}
+
 			endIndex = items.length - 1;
 		}
 		// Normal case: can center the selected item
@@ -126,60 +129,60 @@ export function calculateViewport({
 					endIndex = i - 1;
 					break;
 				}
+
 				viewportHeight += itemHeights[i];
 				endIndex = i;
 			}
 		}
-	} else {
 		// No centering: just ensure selected item is visible
+	} else if (validSelectedIndex === 0) {
 		// If selected item is at the beginning
-		if (validSelectedIndex === 0) {
-			for (let i = 0; i < items.length; i++) {
-				if (viewportHeight + itemHeights[i] > height) {
-					endIndex = i - 1;
-					break;
-				}
-				viewportHeight += itemHeights[i];
-				endIndex = i;
+		for (let i = 0; i < items.length; i++) {
+			if (viewportHeight + itemHeights[i] > height) {
+				endIndex = i - 1;
+				break;
 			}
+
+			viewportHeight += itemHeights[i];
+			endIndex = i;
 		}
 		// If selected item is at the end
-		else if (validSelectedIndex === items.length - 1) {
-			viewportHeight = 0;
-			for (let i = items.length - 1; i >= 0; i--) {
-				if (viewportHeight + itemHeights[i] > height) {
-					startIndex = i + 1;
-					break;
-				}
-				viewportHeight += itemHeights[i];
-				startIndex = i;
+	} else if (validSelectedIndex === items.length - 1) {
+		viewportHeight = 0;
+		for (let i = items.length - 1; i >= 0; i--) {
+			if (viewportHeight + itemHeights[i] > height) {
+				startIndex = i + 1;
+				break;
 			}
-			endIndex = items.length - 1;
+
+			viewportHeight += itemHeights[i];
+			startIndex = i;
 		}
+
+		endIndex = items.length - 1;
 		// Selected item is in the middle
-		else {
-			// Start from selected item and expand both directions
-			startIndex = validSelectedIndex;
-			endIndex = validSelectedIndex;
-			viewportHeight = itemHeights[validSelectedIndex];
+	} else {
+		// Start from selected item and expand both directions
+		startIndex = validSelectedIndex;
+		endIndex = validSelectedIndex;
+		viewportHeight = itemHeights[validSelectedIndex];
 
-			// Expand downwards first
-			while (
-				endIndex < items.length - 1 &&
-				viewportHeight + itemHeights[endIndex + 1] <= height
-			) {
-				endIndex++;
-				viewportHeight += itemHeights[endIndex];
-			}
+		// Expand downwards first
+		while (
+			endIndex < items.length - 1 &&
+			viewportHeight + itemHeights[endIndex + 1] <= height
+		) {
+			endIndex++;
+			viewportHeight += itemHeights[endIndex];
+		}
 
-			// Then expand upwards if there's room
-			while (
-				startIndex > 0 &&
-				viewportHeight + itemHeights[startIndex - 1] <= height
-			) {
-				startIndex--;
-				viewportHeight += itemHeights[startIndex];
-			}
+		// Then expand upwards if there's room
+		while (
+			startIndex > 0 &&
+			viewportHeight + itemHeights[startIndex - 1] <= height
+		) {
+			startIndex--;
+			viewportHeight += itemHeights[startIndex];
 		}
 	}
 

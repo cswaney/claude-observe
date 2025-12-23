@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /**
  * Read logs from JSONL file
@@ -7,7 +7,7 @@ import path from 'path';
  * @return {array} Array of raw log entries
  */
 function readJsonl(filePath) {
-	const content = fs.readFileSync(filePath, 'utf-8');
+	const content = fs.readFileSync(filePath, 'utf8');
 	const lines = content.split('\n').filter(line => line.trim());
 	return lines.map(line => JSON.parse(line));
 }
@@ -18,7 +18,7 @@ function readJsonl(filePath) {
  * @return {string} Message type
  */
 function getMessageType(log) {
-	const message = log.message;
+	const {message} = log;
 
 	if (!message || !message.content) {
 		return null;
@@ -27,9 +27,9 @@ function getMessageType(log) {
 	if (message.role === 'user') {
 		if (log.toolUseResult) {
 			return 'tool_result';
-		} else {
-			return 'user';
 		}
+
+		return 'user';
 	}
 
 	if (message.role === 'assistant') {
@@ -37,6 +37,7 @@ function getMessageType(log) {
 			if (content.type === 'thinking') {
 				return 'thinking';
 			}
+
 			if (content.type === 'tool_use') {
 				return 'tool_use';
 			}
@@ -59,7 +60,7 @@ function getMessageType(log) {
  * @returns {string} Message content
  */
 function getMessageContent(log, type) {
-	const message = log.message;
+	const {message} = log;
 
 	if (!message || !message.content) {
 		return null;
@@ -69,17 +70,26 @@ function getMessageContent(log, type) {
 		if (typeof message.content === 'string') {
 			return message.content;
 		}
+
 		return message.content[0]?.text || '';
-	} else if (type === 'assistant') {
+	}
+
+	if (type === 'assistant') {
 		return message.content[0]?.text || '';
-	} else if (type === 'thinking') {
+	}
+
+	if (type === 'thinking') {
 		return message.content[0]?.thinking || '';
-	} else if (type === 'tool_use') {
+	}
+
+	if (type === 'tool_use') {
 		const input = message.content[0]?.input;
 		return typeof input === 'object'
 			? JSON.stringify(input, null, 2)
 			: String(input || '');
-	} else if (type === 'tool_result') {
+	}
+
+	if (type === 'tool_result') {
 		const content = message.content[0]?.content;
 		return typeof content === 'object'
 			? JSON.stringify(content, null, 2)
@@ -93,13 +103,13 @@ function getMessageContent(log, type) {
  * @returns {number} Total token usage
  */
 export function getTotalUsage(log) {
-	const message = log.message;
+	const {message} = log;
 
 	if (!message || !message.content) {
 		return null;
 	}
 
-	const usage = message.usage;
+	const {usage} = message;
 
 	if (!usage) return 0;
 
@@ -155,10 +165,10 @@ export function loadSessionLogs(sessionPath) {
 
 		if (!log.message) continue;
 
-		let type = getMessageType(log);
-		let parsed = {
+		const type = getMessageType(log);
+		const parsed = {
 			uuid: log.uuid,
-			type: type,
+			type,
 			timestamp: log.timestamp, // Store ISO timestamp
 			content: getMessageContent(log, type),
 			usage: getTotalUsage(log),
@@ -170,30 +180,34 @@ export function loadSessionLogs(sessionPath) {
 			if (parsed.raw.todos) {
 				// Handle in log detail view
 			}
+
 			if (parsed.raw.thinkingMetadata) {
 				// Handle in log detail view
 			}
 		}
 
 		if (parsed.type === 'tool_use') {
-			parsed['toolName'] = parsed.raw.message.content[0].name;
+			parsed.toolName = parsed.raw.message.content[0].name;
 		}
 
 		if (parsed.type === 'tool_result') {
 			const toolUseId = parsed.raw.message.content[0].tool_use_id;
-			const parentIndex = parsedLogs.findIndex(l => {
-				if (l.type === 'tool_use') {
-					return l.raw.message.content[0].id === toolUseId;
+			const parentIndex = parsedLogs.findIndex(log => {
+				if (log.type === 'tool_use') {
+					return log.raw.message.content[0].id === toolUseId;
 				}
+
+				return false;
 			});
 			if (parentIndex >= 0) {
-				const toolName = parsedLogs[parentIndex].toolName;
-				parsed['toolName'] = toolName;
+				const {toolName} = parsedLogs[parentIndex];
+				parsed.toolName = toolName;
 			} else {
 				// Parent tool_use not found, use a placeholder
-				parsed['toolName'] = 'unknown';
+				parsed.toolName = 'unknown';
 			}
-			parsed['toolUseResult'] = parsed.raw.toolUseResult;
+
+			parsed.toolUseResult = parsed.raw.toolUseResult;
 		}
 
 		parsedLogs.push(parsed);
@@ -212,11 +226,13 @@ function parseAgentLogs(sessionPath) {
 	if (entries.length === 0) return logs;
 
 	// Get agent ID from first entry
-	const agentId = entries[0].agentId;
+	const {agentId} = entries[0];
 	if (!agentId) return logs;
 
 	// Find first and last timestamps
-	const timestamps = entries.filter(e => e.timestamp).map(e => e.timestamp);
+	const timestamps = entries
+		.filter(log => log.timestamp)
+		.map(log => log.timestamp);
 
 	if (timestamps.length === 0) return logs;
 
@@ -242,28 +258,28 @@ function parseAgentLogs(sessionPath) {
 	}
 
 	// Create agent start entry
-	logs.push({
-		uuid: `${agentId}-start`,
-		type: 'subagent',
-		timestamp: firstTimestamp, // Store ISO timestamp
-		agentId: agentId,
-		content: `Agent ${agentId} started`,
-		collapsed: true,
-		usage: totalUsage,
-		isLast: false,
-	});
-
-	// Create agent end entry
-	logs.push({
-		uuid: `${agentId}-end`,
-		type: 'subagent',
-		timestamp: lastTimestamp, // Store ISO timestamp
-		agentId: agentId,
-		content: `Agent ${agentId} completed`,
-		collapsed: true,
-		usage: 0, // Only count usage once (in start entry)
-		isLast: true,
-	});
+	logs.push(
+		{
+			uuid: `${agentId}-start`,
+			type: 'subagent',
+			timestamp: firstTimestamp, // Store ISO timestamp
+			agentId,
+			content: `Agent ${agentId} started`,
+			collapsed: true,
+			usage: totalUsage,
+			isLast: false,
+		},
+		{
+			uuid: `${agentId}-end`,
+			type: 'subagent',
+			timestamp: lastTimestamp, // Store ISO timestamp
+			agentId,
+			content: `Agent ${agentId} completed`,
+			collapsed: true,
+			usage: 0, // Only count usage once (in start entry)
+			isLast: true,
+		},
+	);
 
 	return logs;
 }
@@ -278,7 +294,7 @@ function loadAgentLogs(sessionDir, sessionId) {
 		const agentPath = path.join(sessionDir, file);
 
 		// Read first line to check if this agent belongs to this session
-		const line = fs.readFileSync(agentPath, 'utf-8').split('\n')[0];
+		const line = fs.readFileSync(agentPath, 'utf8').split('\n')[0];
 		if (!line.trim()) continue;
 
 		try {
@@ -287,7 +303,7 @@ function loadAgentLogs(sessionDir, sessionId) {
 				const agentLogs = parseAgentLogs(agentPath);
 				logs.push(...agentLogs);
 			}
-		} catch (e) {
+		} catch {
 			// Skip invalid JSON
 			continue;
 		}
@@ -326,6 +342,7 @@ export function loadSessionMetadata(sessionPath) {
 			if (!project && log.cwd) {
 				project = log.cwd;
 			}
+
 			if (log.type === 'user' || log.type === 'assistant') {
 				logCount += 1;
 				tokenUsage += getTotalUsage(log);
@@ -339,7 +356,7 @@ export function loadSessionMetadata(sessionPath) {
 			logCount,
 			tokenUsage,
 		};
-	} catch (e) {
+	} catch {
 		return {
 			project: null,
 			created: null,
@@ -400,9 +417,9 @@ export function loadSession(sessionPath) {
 	});
 
 	// Assign sequential IDs
-	logs.forEach((log, index) => {
+	for (const [index, log] of logs.entries()) {
 		log.id = index + 1;
-	});
+	}
 
 	return {
 		uuid: sessionId,

@@ -1,3 +1,4 @@
+import process from 'node:process';
 import React from 'react';
 import {Box, Text, useStdout} from 'ink';
 import Gradient from 'ink-gradient';
@@ -8,11 +9,14 @@ import {useScrollableList} from '../../hooks/useScrollableList.js';
 const version = process.env.PACKAGE_VERSION || '0.0.0';
 
 function formatLogs(count) {
-	if (count >= 1000000) {
-		return (count / 1000000).toFixed(1) + 'M';
-	} else if (count >= 1000) {
+	if (count >= 1_000_000) {
+		return (count / 1_000_000).toFixed(1) + 'M';
+	}
+
+	if (count >= 1000) {
 		return (count / 1000).toFixed(1) + 'k';
 	}
+
 	return count.toString();
 }
 
@@ -24,16 +28,16 @@ export default function Browser({
 	filterInput = '',
 	filterQuery = '',
 }) {
+	// Calculate available height for session list
 	const {stdout} = useStdout();
 	const terminalHeight = stdout?.rows || 40;
-
-	// Calculate available height for session list
-	// Header (BigText + version) ≈ 10 lines
-	// Filter/help text ≈ 4 lines
-	// TitledBox padding/borders ≈ 4 lines
-	// Table header + divider ≈ 2 lines
-	const headerOverhead = 20;
-	const availableHeight = 15; // Math.max(10, terminalHeight - headerOverhead);
+	const headerLines = 10;
+	const filterLines = 4;
+	const titleBoxLines = 4;
+	const tableHeaderLines = 2;
+	const headerOverhead =
+		headerLines + filterLines + titleBoxLines + tableHeaderLines; // 20
+	const availableHeight = Math.max(10, terminalHeight - headerOverhead);
 
 	// Use scrollable list hook
 	const {
@@ -75,7 +79,7 @@ export default function Browser({
 						<Box flexDirection="column">
 							<Box>
 								<Box width={1}>
-									<Text></Text>
+									<Text />
 								</Box>
 								<Box width={44} marginRight={3} justifyContent="flex-start">
 									<Text dimColor bold>
@@ -103,7 +107,7 @@ export default function Browser({
 									</Text>
 								</Box>
 								<Box width={1}>
-									<Text></Text>
+									<Text />
 								</Box>
 							</Box>
 
@@ -196,7 +200,7 @@ export default function Browser({
 											</Text>
 										</Box>
 										<Box width={1}>
-											<Text></Text>
+											<Text />
 										</Box>
 									</Box>
 								);

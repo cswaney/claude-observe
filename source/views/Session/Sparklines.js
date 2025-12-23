@@ -1,5 +1,4 @@
-import React from 'react';
-import {render, Box, Text} from 'ink';
+import {Box, Text} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
 import {Histogram} from './source/components/Chart.js';
 
@@ -28,25 +27,6 @@ export default function Sparklines({logs, width = 120, height = 3}) {
 	const maxTime = Math.max(...timestamps);
 	const startDate = new Date(minTime * 1000);
 	const endDate = new Date(maxTime * 1000);
-	const isMultiDaySession = startDate.toDateString() !== endDate.toDateString();
-
-	const formatTimeLabel = date => {
-		const time = date.toLocaleTimeString('en-US', {
-			hour: '2-digit',
-			minute: '2-digit',
-			hour12: true,
-		});
-
-		if (isMultiDaySession) {
-			const dateStr = date.toLocaleDateString('en-US', {
-				month: 'short',
-				day: 'numeric',
-			});
-			return `${dateStr} ${time}`;
-		}
-
-		return time;
-	};
 
 	const logTypes = [
 		{name: 'assistant', color: '#2ecc71', label: 'Assistant'},
@@ -74,17 +54,18 @@ export default function Sparklines({logs, width = 120, height = 3}) {
 
 	const histogram = data => {
 		const xStep = (maxTime - minTime) / chartWidth;
-		const bins = Array(chartWidth).fill(0);
+		const bins = Array.from({length: chartWidth}, () => 0);
 
-		data.x.forEach((value, xIndex) => {
+		for (const [xIndex, value] of data.x.entries()) {
 			let dIndex = Math.floor((value - minTime) / xStep);
 			if (dIndex === chartWidth) {
 				dIndex -= 1;
 			}
+
 			if (dIndex >= 0 && dIndex < chartWidth) {
 				bins[dIndex] += data.y[xIndex];
 			}
-		});
+		}
 
 		return bins;
 	};
@@ -105,7 +86,7 @@ export default function Sparklines({logs, width = 120, height = 3}) {
 				marginTop={1}
 			>
 				<Box flexDirection="column" marginTop={-1}>
-					{logTypes.map(({name, color, label}, idx) => {
+					{logTypes.map(({name, color, _}, idx) => {
 						const data = dataByType[idx];
 
 						return (
@@ -152,8 +133,28 @@ export default function Sparklines({logs, width = 120, height = 3}) {
  * @returns
  */
 function TimeAxisLegend({data, types, startDate, endDate, totalTokens}) {
+	const isMultiDaySession = startDate.toDateString() !== endDate.toDateString();
+
+	const formatTimeLabel = date => {
+		const time = date.toLocaleTimeString('en-US', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: true,
+		});
+
+		if (isMultiDaySession) {
+			const dateString = date.toLocaleDateString('en-US', {
+				month: 'short',
+				day: 'numeric',
+			});
+			return `${dateString} ${time}`;
+		}
+
+		return time;
+	};
+
 	return (
-		<Box marginTop={1} justifyContent="space-between" width={chartWidth}>
+		<Box marginTop={1} justifyContent="space-between">
 			<Text dimColor>{formatTimeLabel(startDate)}</Text>
 			<Box gap={3}>
 				{types.map(({name, color, label}, idx) => {

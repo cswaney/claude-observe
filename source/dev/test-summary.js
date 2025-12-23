@@ -1,12 +1,12 @@
-import {parseSession, parseLogFile, getTotalUsage} from './source/parser.js';
+import {parseSession, parseLogFile, getTotalUsage} from '../parser.js';
 
 const sessionPath =
 	'/Users/cs7101/.claude/projects/-Users-cs7101-Development-claude-kit/404fc69d-751b-4662-b5c0-5c708a100632.jsonl';
-// const sessionPath = '/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
+// Const sessionPath = '/Users/colinswaney/.claude/projects/-Users-colinswaney-Desktop-claude-observe/7e462c02-4cf8-4535-8d32-6e6242eaab26.jsonl';
 
 console.log('Loading session...\n');
 
-// const { logs, sessionId, project, startDatetime } = parseSession(null, null, sessionPath);
+// Const { logs, sessionId, project, startDatetime } = parseSession(null, null, sessionPath);
 
 // console.log('Session loaded successfully!');
 // console.log(`Session ID: ${sessionId}`);
@@ -49,7 +49,7 @@ const logs = parseLogFile(sessionPath);
 
 // Example: Access first few logs
 console.log('First 10 logs:');
-// logs.slice(0, 3).forEach((log, idx) => {
+// Logs.slice(0, 3).forEach((log, idx) => {
 // 	console.log(`  ${idx + 1}. [${log.timestamp}] ${log.type}: ${(log.content || '').substring(0, 50)}...`);
 // });
 
@@ -65,8 +65,8 @@ console.log('First 10 logs:');
 // 	}
 // })
 
-logs.slice(0, 20).forEach((log, idx) => {
+for (const [idx, log] of logs.slice(0, 20).entries()) {
 	console.log(
 		`[${idx}] type: ${log.type} timestamp: ${log.timestamp}, raw.timestamp: ${log.raw.timestamp}`,
 	);
-});
+}

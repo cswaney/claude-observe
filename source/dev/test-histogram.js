@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import React from 'react';
 import {render, Box, Text} from 'ink';
-import {Histogram} from './source/components/Chart.js';
-import {parseLogFile} from './source/parser.js';
+import {Histogram} from '../components/Chart.js';
+import {parseLogFile} from '../parser.js';
 
 function TokenHistogram() {
 	// Load session data
@@ -47,16 +47,17 @@ function TokenHistogram() {
 	};
 
 	// Calculate total tokens
-	const totalTokens = y.reduce((sum, val) => sum + val, 0);
+	const totalTokens = y.reduce((sum, value) => sum + value, 0);
 
 	// Break down by type
 	const tokensByType = {};
-	logsWithData.forEach(log => {
+	for (const log of logsWithData) {
 		if (!tokensByType[log.type]) {
 			tokensByType[log.type] = 0;
 		}
+
 		tokensByType[log.type] += log.usage;
-	});
+	}
 
 	return (
 		<Box flexDirection="column" padding={1}>

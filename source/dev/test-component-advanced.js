@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import React, {useState, useEffect} from 'react';
+import process from 'node:process';
+import React, {useState} from 'react';
 import {render, Box, Text, useInput, useApp} from 'ink';
 
 /**
@@ -93,10 +94,10 @@ function TestHarness() {
 		if (input === 'q' || key.escape) {
 			exit();
 		} else if (input === 'n' || key.rightArrow) {
-			setCurrentTestIndex(prev => (prev + 1) % TEST_CASES.length);
+			setCurrentTestIndex(previous => (previous + 1) % TEST_CASES.length);
 		} else if (input === 'p' || key.leftArrow) {
 			setCurrentTestIndex(
-				prev => (prev - 1 + TEST_CASES.length) % TEST_CASES.length,
+				previous => (previous - 1 + TEST_CASES.length) % TEST_CASES.length,
 			);
 		}
 	});
@@ -111,8 +112,9 @@ function TestHarness() {
 					</Text>
 					<Box marginTop={1}>
 						<Text dimColor>
-							Test {currentTestIndex + 1} of {TEST_CASES.length} | Press 'n' for
-							next, 'p' for previous, 'q' to quit
+							Test {currentTestIndex + 1} of {TEST_CASES.length} | Press
+							&apos;n&apos; for next, &apos;p&apos; for previous, &apos;q&apos;
+							to quit
 						</Text>
 					</Box>
 				</Box>
@@ -121,13 +123,13 @@ function TestHarness() {
 			{/* Test Case Info */}
 			<Box flexDirection="column" marginBottom={1}>
 				<Box>
-					<Text color="yellow" bold>
+					<Text bold color="yellow">
 						Test:{' '}
 					</Text>
 					<Text>{currentTest.name}</Text>
 				</Box>
 				<Box>
-					<Text color="yellow" bold>
+					<Text bold color="yellow">
 						Description:{' '}
 					</Text>
 					<Text dimColor>{currentTest.description}</Text>

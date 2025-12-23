@@ -2,7 +2,7 @@
 import React, {useState} from 'react';
 import {render, Box, Text, useInput} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
-import {useScrollableList} from './source/hooks/useScrollableList.js';
+import {useScrollableList} from '../hooks/useScrollableList.js';
 
 /**
  * Example showing how to use useScrollableList hook with custom UI
@@ -80,27 +80,41 @@ function CustomStyledListExample() {
 
 	const getStatusColor = status => {
 		switch (status) {
-			case 'done':
+			case 'done': {
 				return '#2ecc71';
-			case 'pending':
+			}
+
+			case 'pending': {
 				return '#f1c40f';
-			case 'failed':
+			}
+
+			case 'failed': {
 				return '#e74c3c';
-			default:
+			}
+
+			default: {
 				return 'white';
+			}
 		}
 	};
 
 	const getStatusIcon = status => {
 		switch (status) {
-			case 'done':
+			case 'done': {
 				return '✓';
-			case 'pending':
+			}
+
+			case 'pending': {
 				return '○';
-			case 'failed':
+			}
+
+			case 'failed': {
 				return '✗';
-			default:
+			}
+
+			default: {
 				return ' ';
+			}
 		}
 	};
 

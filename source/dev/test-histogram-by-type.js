@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import React from 'react';
 import {render, Box, Text} from 'ink';
-import {Histogram} from './source/components/Chart.js';
-import {parseLogFile} from './source/parser.js';
+import {Histogram} from '../components/Chart.js';
+import {parseLogFile} from '../parser.js';
 
 function TokenHistogramByType() {
 	const sessionPath =

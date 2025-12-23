@@ -2,8 +2,8 @@
 import React, {useState, useEffect} from 'react';
 import {render, Box, Text} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
-import {Histogram} from './source/components/Chart.js';
-import {parseLogFile} from './source/parser.js';
+import {Histogram} from '../components/Chart.js';
+import {parseLogFile} from '../parser.js';
 
 function LiveActivityChart() {
 	const sessionPath =
@@ -38,11 +38,11 @@ function LiveActivityChart() {
 		});
 
 		if (spanMultipleDays) {
-			const dateStr = date.toLocaleDateString('en-US', {
+			const dateString = date.toLocaleDateString('en-US', {
 				month: 'short',
 				day: 'numeric',
 			});
-			return `${dateStr} ${time}`;
+			return `${dateString} ${time}`;
 		}
 
 		return time;
@@ -91,8 +91,8 @@ function LiveActivityChart() {
 		}
 
 		const timer = setInterval(() => {
-			setProgress(prev => {
-				const next = prev + 2; // Increment by 2% each step
+			setProgress(previous => {
+				const next = previous + 2; // Increment by 2% each step
 				return next > 100 ? 100 : next;
 			});
 		}, 150); // Update every 50ms

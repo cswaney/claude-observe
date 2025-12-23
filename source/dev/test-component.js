@@ -23,7 +23,7 @@ function ExampleComponent({message = 'Hello, Ink!'}) {
 			borderStyle="round"
 			borderColor="cyan"
 		>
-			<Text color="green" bold>
+			<Text bold color="green">
 				Test Component
 			</Text>
 			<Text>{message}</Text>

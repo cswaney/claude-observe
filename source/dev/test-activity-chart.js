@@ -2,8 +2,8 @@
 import React from 'react';
 import {render, Box, Text} from 'ink';
 import {TitledBox} from '@mishieck/ink-titled-box';
-import {Histogram} from './source/components/Chart.js';
-import {parseLogFile} from './source/parser.js';
+import {Histogram} from '../components/Chart.js';
+import {parseLogFile} from '../parser.js';
 
 function ActivityChart() {
 	const sessionPath =
@@ -43,11 +43,11 @@ function ActivityChart() {
 		});
 
 		if (spanMultipleDays) {
-			const dateStr = date.toLocaleDateString('en-US', {
+			const dateString = date.toLocaleDateString('en-US', {
 				month: 'short',
 				day: 'numeric',
 			});
-			return `${dateStr} ${time}`;
+			return `${dateString} ${time}`;
 		}
 
 		return time;
@@ -86,17 +86,18 @@ function ActivityChart() {
 	// We need to bin the data for each type to find the maximum bin value across all types
 	const calculateBinnedData = data => {
 		const xStep = (maxTime - minTime) / chartWidth;
-		const bins = Array(chartWidth).fill(0);
+		const bins = Array.from({length: chartWidth}).fill(0);
 
-		data.x.forEach((value, xIndex) => {
+		for (const [xIndex, value] of data.x.entries()) {
 			let dIndex = Math.floor((value - minTime) / xStep);
 			if (dIndex === chartWidth) {
 				dIndex -= 1;
 			}
+
 			if (dIndex >= 0 && dIndex < chartWidth) {
 				bins[dIndex] += data.y[xIndex];
 			}
-		});
+		}
 
 		return bins;
 	};

@@ -38,27 +38,28 @@ export function Histogram({
 
 	// Calculate binned data
 	const calculateData = () => {
-		const actualXMin = xMin !== undefined ? xMin : Math.min(...x);
-		const actualXMax = xMax !== undefined ? xMax : Math.max(...x);
+		const actualXMin = xMin === undefined ? Math.min(...x) : xMin;
+		const actualXMax = xMax === undefined ? Math.max(...x) : xMax;
 		const xStep = (actualXMax - actualXMin) / width;
 
 		// Initialize bins
-		const data = Array(width).fill(0);
+		const data = Array.from({length: width}, () => 0);
 
 		// Bin x values and accumulate y values
-		x.forEach((value, xIndex) => {
+		for (const [xIndex, value] of x.entries()) {
 			let dIndex = Math.floor((value - actualXMin) / xStep);
 			if (dIndex === width) {
 				dIndex -= 1;
 			}
+
 			if (dIndex >= 0 && dIndex < width) {
 				data[dIndex] += y[xIndex];
 			}
-		});
+		}
 
 		// Calculate y scaling
-		const actualYMin = yMin !== undefined ? yMin : 0;
-		const actualYMax = yMax !== undefined ? yMax : Math.max(...data);
+		const actualYMin = yMin === undefined ? 0 : yMin;
+		const actualYMax = yMax === undefined ? Math.max(...data) : yMax;
 		const yStep = (actualYMax - actualYMin) / (height * nbars);
 
 		// Scale data to chart height
@@ -94,7 +95,7 @@ function BarChart({data, height, color}) {
 		const maxY = (rowIndex + 1) * nbars;
 
 		return data
-			.map((value, idx) => {
+			.map((value, _) => {
 				let char;
 				if (value >= maxY) {
 					char = bars[nbars - 1];
@@ -105,6 +106,7 @@ function BarChart({data, height, color}) {
 				} else {
 					char = ' ';
 				}
+
 				return char;
 			})
 			.join('');

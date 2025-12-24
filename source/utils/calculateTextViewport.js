@@ -46,8 +46,8 @@ export function calculateTextViewport({
 	// cumulative[i] = total rows taken by lines 0 through i-1
 	// Example: lines with heights [1, 3, 1] => cumulative [0, 1, 4, 5]
 	const cumulativeHeights = [0];
-	for (let i = 0; i < lineHeights.length; i++) {
-		cumulativeHeights.push(cumulativeHeights[i] + lineHeights[i]);
+	for (const [i, lineHeight] of lineHeights.entries()) {
+		cumulativeHeights.push(cumulativeHeights[i] + lineHeight);
 	}
 
 	const totalHeight = cumulativeHeights[cumulativeHeights.length - 1];
@@ -72,7 +72,7 @@ export function calculateTextViewport({
 	);
 
 	// Start from the scrollOffset line
-	let startLineIndex = validScrollOffset;
+	const startLineIndex = validScrollOffset;
 	let endLineIndex = validScrollOffset;
 
 	// Calculate how many rows we've used so far
@@ -86,6 +86,7 @@ export function calculateTextViewport({
 			// Next line doesn't fit
 			break;
 		}
+
 		endLineIndex++;
 		usedHeight += nextLineHeight;
 	}

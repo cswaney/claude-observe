@@ -25,19 +25,21 @@ export default function Session({
 		if (!log) return 1;
 
 		if (log.type === 'tool_result') {
-			return 1; // tool result not displaying preview for now
+			return 1; // Tool result not displaying preview for now
 		}
 
 		if (log.type === 'subagent' && log.isLast) {
 			// Agent end: 1 line
 			return 1;
 		}
+
 		if (log.type === 'subagent' && !log.isLast) {
 			// Agent start: 1 line for title + content lines if expanded
 			const isCollapsed = collapsedStates[log.id];
 			if (isCollapsed || !log.content) return 1;
 			return 2; // Title + content line
 		}
+
 		// Regular logs: 1 line for title + up to 5 content lines + 1 for "..." if expanded
 		const isCollapsed = collapsedStates[log.id];
 		if (isCollapsed || !log.content) return 1;
@@ -88,13 +90,13 @@ export default function Session({
 	return (
 		<Box flexDirection="column" width={width}>
 			<TitledBox
+				key={session.parentSessionId ? `agent-${sessionId}` : 'session'}
 				flexDirection="column"
 				width={width}
 				borderStyle="single"
 				borderColor="gray"
 				padding={1}
 				titles={[outerBoxTitle]}
-				key={session.parentSessionId ? `agent-${sessionId}` : 'session'}
 			>
 				<Summary session={session} width={width} />
 

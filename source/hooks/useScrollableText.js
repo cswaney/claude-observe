@@ -41,7 +41,7 @@ export function useScrollableText({
 	// Create default getLineHeight function if not provided
 	// This calculates how many rows a line will take based on text wrapping
 	const defaultGetLineHeight = useCallback(
-		(line, index) => {
+		(line, _) => {
 			// Calculate gutter width for line numbers
 			// Example: if we have 999 lines, gutter is "[999] " = 6 chars
 			const maxLineNumber = lines.length;

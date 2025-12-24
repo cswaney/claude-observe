@@ -1,8 +1,8 @@
-import React, {useState, useEffect} from 'react';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import {Box, Text, useInput, useStdout} from 'ink';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import React, {useState, useEffect} from 'react';
 import {loadSession, loadSessionMetadata} from './parser.js';
 import Browser from './views/Browser/index.js';
 import Session from './views/Session/index.js';
@@ -47,14 +47,10 @@ export default function App({sessionPath = null}) {
 		thinking: true,
 		subagent: true,
 	});
-	const [savedFilters, setSavedFilters] = useState(null);
 	const [savedSelectedIndex, setSavedSelectedIndex] = useState(null); // Save selectedIndex when entering agent view
 	const [searchMode, setSearchMode] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [activeSearch, setActiveSearch] = useState('');
-
-	// Detail state
-	const [detailScrollOffset, setDetailScrollOffset] = useState(0);
 
 	// Initialize currentSessionPath from prop if provided
 	useEffect(() => {
@@ -145,18 +141,19 @@ export default function App({sessionPath = null}) {
 	useEffect(() => {
 		const sessions = [];
 		const sortedProjects = [...projects].sort(
-			(a, b) => a.name.localeCompare(b.name), // sort alphabetically
+			(a, b) => a.name.localeCompare(b.name), // Sort alphabetically
 		);
-		sortedProjects.forEach(project => {
+		for (const project of sortedProjects) {
 			const projectPath = project.path;
 			// Sessions are already sorted by mtime
-			project.sessions.forEach(session => {
+			for (const session of project.sessions) {
 				sessions.push({
 					...session,
-					projectPath: projectPath,
+					projectPath,
 				});
-			});
-		});
+			}
+		}
+
 		setBrowserItems(sessions);
 	}, [projects]);
 
@@ -172,8 +169,8 @@ export default function App({sessionPath = null}) {
 			setSessionData(loadedSessionData);
 			setError(null);
 			setViewMode('session');
-		} catch (err) {
-			setError(err.message);
+		} catch (error_) {
+			setError(error_.message);
 			setSessionData(null);
 		}
 	}, [currentSessionPath]);
@@ -182,18 +179,17 @@ export default function App({sessionPath = null}) {
 	useEffect(() => {
 		const initial = {};
 		const logsToInit = sessionData?.logs || [];
-		logsToInit.forEach(log => {
+		for (const log of logsToInit) {
 			initial[log.id] = true; // Start all collapsed
-		});
+		}
+
 		setCollapsedStates(initial);
 	}, [sessionData?.logs]);
 
 	// Reset selected index on navigation to session from browser
 	useEffect(() => {
-		if (viewMode == 'session') {
-			if (!savedSelectedIndex) {
-				setSelectedIndex(0);
-			}
+		if (viewMode === 'session' && !savedSelectedIndex) {
+			setSelectedIndex(0);
 		}
 	}, [viewMode]);
 
@@ -204,11 +200,12 @@ export default function App({sessionPath = null}) {
 	const parseSearchQuery = query => {
 		if (!query.trim()) return [];
 		const filters = [];
-		const parts = query.match(/(\w+):([^\s]+)/g) || [];
-		parts.forEach(part => {
+		const parts = query.match(/(\w+):(\S+)/g) || [];
+		for (const part of parts) {
 			const [field, value] = part.split(':');
 			filters.push({field: field.toLowerCase(), value: value.toLowerCase()});
-		});
+		}
+
 		return filters;
 	};
 
@@ -218,16 +215,25 @@ export default function App({sessionPath = null}) {
 
 		return searchFilters.every(filter => {
 			switch (filter.field) {
-				case 'type':
+				case 'type': {
 					return log.type.toLowerCase().includes(filter.value);
-				case 'content':
+				}
+
+				case 'content': {
 					return log.content?.toLowerCase().includes(filter.value);
-				case 'agent':
+				}
+
+				case 'agent': {
 					return log.agentId?.toLowerCase().includes(filter.value);
-				case 'tool':
+				}
+
+				case 'tool': {
 					return log.toolName?.toLowerCase().includes(filter.value);
-				default:
+				}
+
+				default: {
 					return true;
+				}
 			}
 		});
 	};
@@ -241,6 +247,7 @@ export default function App({sessionPath = null}) {
 		if (logType === 'tool_use' || logType === 'tool_result') {
 			return 'tool';
 		}
+
 		return logType;
 	};
 
@@ -256,6 +263,7 @@ export default function App({sessionPath = null}) {
 		if (log.type === 'subagent' && log.isLast) {
 			return false;
 		}
+
 		return true;
 	};
 
@@ -266,8 +274,10 @@ export default function App({sessionPath = null}) {
 			if (isSelectable(filteredLogs[nextIndex])) {
 				return nextIndex;
 			}
+
 			nextIndex += direction;
 		}
+
 		return currentIndex; // Stay at current if no selectable found
 	};
 
@@ -284,8 +294,10 @@ export default function App({sessionPath = null}) {
 			) {
 				break; // Reached end of list
 			}
+
 			count++;
 		}
+
 		return nextIndex;
 	};
 
@@ -301,7 +313,9 @@ export default function App({sessionPath = null}) {
 					setBrowserFilterQuery(browserFilterInput);
 					setBrowserFilterMode(false);
 					return;
-				} else if (key.escape) {
+				}
+
+				if (key.escape) {
 					const currentItem = filteredBrowserItems[selectedIndex];
 					setBrowserFilterInput('');
 					setBrowserFilterQuery('');
@@ -310,25 +324,29 @@ export default function App({sessionPath = null}) {
 						const newIndex = browserItems.findIndex(
 							item => item.session === currentItem.session,
 						);
-						if (newIndex !== -1) {
-							setSelectedIndex(newIndex);
-						} else {
+						if (newIndex === -1) {
 							setSelectedIndex(0);
+						} else {
+							setSelectedIndex(newIndex);
 						}
 					} else {
 						setSelectedIndex(0);
 					}
+
 					return;
-				} else if (key.upArrow && selectedIndex > 0) {
-					setSelectedIndex(prev => prev - 1);
+				}
+
+				if (key.upArrow && selectedIndex > 0) {
+					setSelectedIndex(previous => previous - 1);
 					return;
-				} else if (
-					key.downArrow &&
-					selectedIndex < filteredBrowserItems.length - 1
-				) {
-					setSelectedIndex(prev => prev + 1);
+				}
+
+				if (key.downArrow && selectedIndex < filteredBrowserItems.length - 1) {
+					setSelectedIndex(previous => previous + 1);
 					return;
-				} else if (key.backspace || key.delete) {
+				}
+
+				if (key.backspace || key.delete) {
 					const newInput = browserFilterInput.slice(0, -1);
 					const currentItem = filteredBrowserItems[selectedIndex];
 					setBrowserFilterInput(newInput);
@@ -343,8 +361,11 @@ export default function App({sessionPath = null}) {
 							setSelectedIndex(0);
 						}
 					}
+
 					return;
-				} else if (input && !key.ctrl && !key.meta) {
+				}
+
+				if (input && !key.ctrl && !key.meta) {
 					const newInput = browserFilterInput + input;
 					const currentItem = filteredBrowserItems[selectedIndex];
 					setBrowserFilterInput(newInput);
@@ -357,10 +378,9 @@ export default function App({sessionPath = null}) {
 
 						if (!stillMatches) {
 							setSelectedIndex(0);
-						} else {
-							setSelectedIndex(0);
 						}
 					}
+
 					return;
 				}
 
@@ -374,42 +394,62 @@ export default function App({sessionPath = null}) {
 			}
 
 			if (key.upArrow && selectedIndex > 0) {
-				setSelectedIndex(prev => prev - 1);
+				setSelectedIndex(previous => previous - 1);
 			} else if (
 				key.downArrow &&
 				selectedIndex < filteredBrowserItems.length - 1
 			) {
-				setSelectedIndex(prev => prev + 1);
-			} else if (input === 'd') {
-				// d: jump down 10
-				setSelectedIndex(prev =>
-					Math.min(filteredBrowserItems.length - 1, prev + 10),
-				);
-			} else if (input === 'u') {
-				// u: jump up 10
-				setSelectedIndex(prev => Math.max(0, prev - 10));
-			} else if (input === 't') {
-				// t: jump to top
-				setSelectedIndex(0);
-			} else if (input === 'b') {
-				// b: jump to bottom
-				setSelectedIndex(filteredBrowserItems.length - 1);
-			} else if (key.return || key.rightArrow) {
-				const session = filteredBrowserItems[selectedIndex];
-				if (session) {
-					setLastSelectedSession(session.path);
-					setCurrentSessionPath(session.path);
-					setCurrentSessionDir(path.dirname(session.path));
-					setActiveFilters({
-						user: true,
-						assistant: true,
-						tool: true,
-						thinking: true,
-						subagent: true,
-					});
-					setSavedFilters(null);
+				setSelectedIndex(previous => previous + 1);
+			} else
+				switch (input) {
+					case 'd': {
+						// D: jump down 10
+						setSelectedIndex(previous =>
+							Math.min(filteredBrowserItems.length - 1, previous + 10),
+						);
+
+						break;
+					}
+
+					case 'u': {
+						// U: jump up 10
+						setSelectedIndex(previous => Math.max(0, previous - 10));
+
+						break;
+					}
+
+					case 't': {
+						// T: jump to top
+						setSelectedIndex(0);
+
+						break;
+					}
+
+					case 'b': {
+						// B: jump to bottom
+						setSelectedIndex(filteredBrowserItems.length - 1);
+
+						break;
+					}
+
+					default: {
+						if (key.return || key.rightArrow) {
+							const session = filteredBrowserItems[selectedIndex];
+							if (session) {
+								setLastSelectedSession(session.path);
+								setCurrentSessionPath(session.path);
+								setCurrentSessionDir(path.dirname(session.path));
+								setActiveFilters({
+									user: true,
+									assistant: true,
+									tool: true,
+									thinking: true,
+									subagent: true,
+								});
+							}
+						}
+					}
 				}
-			}
 
 			if (key.escape && browserFilterQuery) {
 				setBrowserFilterQuery('');
@@ -426,17 +466,24 @@ export default function App({sessionPath = null}) {
 					setActiveSearch(searchQuery);
 					setSearchMode(false);
 					return;
-				} else if (key.escape) {
+				}
+
+				if (key.escape) {
 					setSearchQuery('');
 					setSearchMode(false);
 					return;
-				} else if (key.backspace || key.delete) {
-					setSearchQuery(prev => prev.slice(0, -1));
-					return;
-				} else if (input && !key.ctrl && !key.meta) {
-					setSearchQuery(prev => prev + input);
+				}
+
+				if (key.backspace || key.delete) {
+					setSearchQuery(previous => previous.slice(0, -1));
 					return;
 				}
+
+				if (input && !key.ctrl && !key.meta) {
+					setSearchQuery(previous => previous + input);
+					return;
+				}
+
 				return;
 			}
 
@@ -453,238 +500,254 @@ export default function App({sessionPath = null}) {
 
 			// Hot Keys
 			if (input === '1') {
-				setActiveFilters(prev => ({...prev, user: !prev.user}));
+				setActiveFilters(previous => ({...previous, user: !previous.user}));
 				return;
-			} else if (input === '2') {
-				setActiveFilters(prev => ({...prev, assistant: !prev.assistant}));
+			}
+
+			if (input === '2') {
+				setActiveFilters(previous => ({
+					...previous,
+					assistant: !previous.assistant,
+				}));
 				return;
-			} else if (input === '3') {
-				setActiveFilters(prev => ({...prev, tool: !prev.tool}));
+			}
+
+			if (input === '3') {
+				setActiveFilters(previous => ({...previous, tool: !previous.tool}));
 				return;
-			} else if (input === '4') {
-				setActiveFilters(prev => ({...prev, thinking: !prev.thinking}));
+			}
+
+			if (input === '4') {
+				setActiveFilters(previous => ({
+					...previous,
+					thinking: !previous.thinking,
+				}));
 				return;
-			} else if (input === '5') {
-				setActiveFilters(prev => ({...prev, subagent: !prev.subagent}));
+			}
+
+			if (input === '5') {
+				setActiveFilters(previous => ({
+					...previous,
+					subagent: !previous.subagent,
+				}));
 				return;
 			}
 
 			// Navigation
 			if (key.upArrow) {
-				setSelectedIndex(prev => findNextSelectable(prev, -1));
+				setSelectedIndex(previous => findNextSelectable(previous, -1));
 			} else if (key.downArrow) {
-				setSelectedIndex(prev => findNextSelectable(prev, 1));
-			} else if (input === 'd') {
-				// d: jump down 10 messages
-				setSelectedIndex(prev => findNthSelectable(prev, 1, 10));
-			} else if (input === 'u') {
-				// u: jump up 10 messages
-				setSelectedIndex(prev => findNthSelectable(prev, -1, 10));
-			} else if (input === 't') {
-				// t: jump to top
-				const firstSelectable = filteredLogs.findIndex(log =>
-					isSelectable(log),
-				);
-				if (firstSelectable !== -1) setSelectedIndex(firstSelectable);
-			} else if (input === 'b') {
-				// b: jump to bottom
-				for (let i = filteredLogs.length - 1; i >= 0; i--) {
-					if (isSelectable(filteredLogs[i])) {
-						setSelectedIndex(i);
+				setSelectedIndex(previous => findNextSelectable(previous, 1));
+			} else
+				switch (input) {
+					case 'd': {
+						// D: jump down 10 messages
+						setSelectedIndex(previous => findNthSelectable(previous, 1, 10));
+
 						break;
 					}
-				}
-			} else if (key.return) {
-				const selectedLog = filteredLogs[selectedIndex];
-				// Don't allow expansion for tool_result items (content format varies by tool)
-				if (selectedLog?.content && selectedLog.type !== 'tool_result') {
-					setCollapsedStates(prev => ({
-						...prev,
-						[selectedLog.id]: !prev[selectedLog.id],
-					}));
-				}
-			} else if (input === 'a') {
-				// Expand all
-				const newStates = {};
-				filteredLogs.forEach(log => {
-					newStates[log.id] = false;
-				});
-				setCollapsedStates(newStates);
-			} else if (input === 'c') {
-				// Collapse all
-				const newStates = {};
-				filteredLogs.forEach(log => {
-					newStates[log.id] = true;
-				});
-				setCollapsedStates(newStates);
-			} else if (key.rightArrow) {
-				const selectedLog = filteredLogs[selectedIndex];
-				// If it's a subagent start log (not end), navigate into agent session
-				if (
-					selectedLog?.type === 'subagent' &&
-					!selectedLog.isLast &&
-					selectedLog.agentId &&
-					currentSessionDir
-				) {
-					const agentFilePath = path.join(
-						currentSessionDir,
-						`agent-${selectedLog.agentId}.jsonl`,
-					);
-					if (fs.existsSync(agentFilePath)) {
-						// Save current selectedIndex before navigating
-						setSavedSelectedIndex(selectedIndex);
-						// Navigate to agent session
-						setCurrentSessionPath(agentFilePath);
-						setSelectedIndex(0);
-						setDetailScrollOffset(0);
-						return;
-					}
-				}
-				setViewMode('detail');
-				setDetailScrollOffset(0);
-				return;
-			} else if (key.leftArrow) {
-				// Left arrow: Return to Browser
-				// If we're in an agent session, go back to parent session first
-				if (sessionData?.parentSessionId && currentSessionDir) {
-					const parentSessionPath = path.join(
-						currentSessionDir,
-						`${sessionData.parentSessionId}.jsonl`,
-					);
-					if (fs.existsSync(parentSessionPath)) {
-						setCurrentSessionPath(parentSessionPath);
-						// Restore saved selectedIndex if available
-						if (savedSelectedIndex !== null) {
-							setSelectedIndex(savedSelectedIndex);
-							setSavedSelectedIndex(null);
-						} else {
-							setSelectedIndex(0);
-						}
-						return;
-					}
-				}
 
-				// Otherwise go back to browser
-				setViewMode('browser');
-				setSavedFilters(null);
-				setSavedSelectedIndex(null);
-				if (lastSelectedSession) {
-					const index = browserItems.findIndex(
-						session => session.path === lastSelectedSession,
-					);
-					if (index !== -1) {
-						setSelectedIndex(index);
-					} else {
-						setSelectedIndex(0);
-					}
-				} else {
-					setSelectedIndex(0);
-				}
-				setCurrentSessionPath(null);
-				setSessionData(null);
-				return;
-			} else if (key.escape) {
-				// If we're in an agent session, go back to parent session
-				if (sessionData?.parentSessionId && currentSessionDir) {
-					const parentSessionPath = path.join(
-						currentSessionDir,
-						`${sessionData.parentSessionId}.jsonl`,
-					);
-					if (fs.existsSync(parentSessionPath)) {
-						setCurrentSessionPath(parentSessionPath);
-						// Restore saved selectedIndex if available
-						if (savedSelectedIndex !== null) {
-							setSelectedIndex(savedSelectedIndex);
-							setSavedSelectedIndex(null);
-						} else {
-							setSelectedIndex(0);
-						}
-						return;
-					}
-				}
+					case 'u': {
+						// U: jump up 10 messages
+						setSelectedIndex(previous => findNthSelectable(previous, -1, 10));
 
-				// Otherwise go back to browser
-				setViewMode('browser');
-				setSavedFilters(null);
-				setSavedSelectedIndex(null);
-				if (lastSelectedSession) {
-					const index = browserItems.findIndex(
-						session => session.path === lastSelectedSession,
-					);
-					if (index !== -1) {
-						setSelectedIndex(index);
-					} else {
-						setSelectedIndex(0);
+						break;
 					}
-				} else {
-					setSelectedIndex(0);
+
+					case 't': {
+						// T: jump to top
+						const firstSelectable = filteredLogs.findIndex(log =>
+							isSelectable(log),
+						);
+						if (firstSelectable !== -1) setSelectedIndex(firstSelectable);
+
+						break;
+					}
+
+					case 'b': {
+						// B: jump to bottom
+						for (let i = filteredLogs.length - 1; i >= 0; i--) {
+							if (isSelectable(filteredLogs[i])) {
+								setSelectedIndex(i);
+								break;
+							}
+						}
+
+						break;
+					}
+
+					default: {
+						if (key.return) {
+							const selectedLog = filteredLogs[selectedIndex];
+							// Don't allow expansion for tool_result items (content format varies by tool)
+							if (selectedLog?.content && selectedLog.type !== 'tool_result') {
+								setCollapsedStates(previous => ({
+									...previous,
+									[selectedLog.id]: !previous[selectedLog.id],
+								}));
+							}
+						} else if (input === 'a') {
+							// Expand all
+							const newStates = {};
+							for (const log of filteredLogs) {
+								newStates[log.id] = false;
+							}
+
+							setCollapsedStates(newStates);
+						} else if (input === 'c') {
+							// Collapse all
+							const newStates = {};
+							for (const log of filteredLogs) {
+								newStates[log.id] = true;
+							}
+
+							setCollapsedStates(newStates);
+						} else if (key.rightArrow) {
+							const selectedLog = filteredLogs[selectedIndex];
+							// If it's a subagent start log (not end), navigate into agent session
+							if (
+								selectedLog?.type === 'subagent' &&
+								!selectedLog.isLast &&
+								selectedLog.agentId &&
+								currentSessionDir
+							) {
+								const agentFilePath = path.join(
+									currentSessionDir,
+									`agent-${selectedLog.agentId}.jsonl`,
+								);
+								if (fs.existsSync(agentFilePath)) {
+									// Save current selectedIndex before navigating
+									setSavedSelectedIndex(selectedIndex);
+									// Navigate to agent session
+									setCurrentSessionPath(agentFilePath);
+									setSelectedIndex(0);
+									return;
+								}
+							}
+
+							setViewMode('detail');
+							return;
+						} else if (key.leftArrow) {
+							// Left arrow: Return to Browser
+							// If we're in an agent session, go back to parent session first
+							if (sessionData?.parentSessionId && currentSessionDir) {
+								const parentSessionPath = path.join(
+									currentSessionDir,
+									`${sessionData.parentSessionId}.jsonl`,
+								);
+								if (fs.existsSync(parentSessionPath)) {
+									setCurrentSessionPath(parentSessionPath);
+									// Restore saved selectedIndex if available
+									if (savedSelectedIndex === null) {
+										setSelectedIndex(0);
+									} else {
+										setSelectedIndex(savedSelectedIndex);
+										setSavedSelectedIndex(null);
+									}
+
+									return;
+								}
+							}
+
+							// Otherwise go back to browser
+							setViewMode('browser');
+							setSavedSelectedIndex(null);
+							if (lastSelectedSession) {
+								const index = browserItems.findIndex(
+									session => session.path === lastSelectedSession,
+								);
+								if (index === -1) {
+									setSelectedIndex(0);
+								} else {
+									setSelectedIndex(index);
+								}
+							} else {
+								setSelectedIndex(0);
+							}
+
+							setCurrentSessionPath(null);
+							setSessionData(null);
+							return;
+						} else if (key.escape) {
+							// If we're in an agent session, go back to parent session
+							if (sessionData?.parentSessionId && currentSessionDir) {
+								const parentSessionPath = path.join(
+									currentSessionDir,
+									`${sessionData.parentSessionId}.jsonl`,
+								);
+								if (fs.existsSync(parentSessionPath)) {
+									setCurrentSessionPath(parentSessionPath);
+									// Restore saved selectedIndex if available
+									if (savedSelectedIndex === null) {
+										setSelectedIndex(0);
+									} else {
+										setSelectedIndex(savedSelectedIndex);
+										setSavedSelectedIndex(null);
+									}
+
+									return;
+								}
+							}
+
+							// Otherwise go back to browser
+							setViewMode('browser');
+							setSavedSelectedIndex(null);
+							if (lastSelectedSession) {
+								const index = browserItems.findIndex(
+									session => session.path === lastSelectedSession,
+								);
+								if (index === -1) {
+									setSelectedIndex(0);
+								} else {
+									setSelectedIndex(index);
+								}
+							} else {
+								setSelectedIndex(0);
+							}
+
+							setCurrentSessionPath(null);
+							setSessionData(null);
+							return;
+						}
+					}
 				}
-				setCurrentSessionPath(null);
-				setSessionData(null);
-				return;
-			}
 		}
 
 		if (viewMode === 'detail') {
 			// Navigation
-			if (key.upArrow) {
-				setDetailScrollOffset(prev => Math.max(0, prev - 1));
-			} else if (key.downArrow) {
-				setDetailScrollOffset(prev => prev + 1);
-			} else if (input === 'u') {
-				setDetailScrollOffset(prev => Math.max(0, prev - 10));
-			} else if (input === 'd') {
-				setDetailScrollOffset(prev => prev + 10);
-			} else if (input === 't') {
-				setDetailScrollOffset(0);
-			} else if (input === 'b') {
-				const log = filteredLogs[selectedIndex];
-				if (log && log.content) {
-					const detailAvailableHeight = 30;
-					const contentLines = log.content?.split('\n') || 0;
-					const totalLines = contentLines.length;
-					const maxOffset = Math.max(0, totalLines - detailAvailableHeight);
-					setDetailScrollOffset(maxOffset);
-				}
-			} else if (key.leftArrow && key.shift) {
+			if (key.leftArrow && key.shift) {
 				// Shift+Left: Previous log
 				if (selectedIndex > 0) {
-					setSelectedIndex(prev => prev - 1);
-					setDetailScrollOffset(0);
+					setSelectedIndex(previous => previous - 1);
 				}
 			} else if (key.rightArrow && key.shift) {
 				// Shift+Right: Next log
 				if (selectedIndex < filteredLogs.length - 1) {
-					setSelectedIndex(prev => prev + 1);
-					setDetailScrollOffset(0);
+					setSelectedIndex(previous => previous + 1);
 				}
 			} else if (key.leftArrow) {
 				// Left: Return to Session view
 				setViewMode('session');
-				return;
 			} else if (key.escape) {
 				// Esc: Always return to Browser
 				setViewMode('browser');
-				setSavedFilters(null);
 				setSavedSelectedIndex(null);
 				if (lastSelectedSession) {
 					const index = browserItems.findIndex(
 						session => session.path === lastSelectedSession,
 					);
-					if (index !== -1) {
-						setSelectedIndex(index);
-					} else {
+					if (index === -1) {
 						setSelectedIndex(0);
+					} else {
+						setSelectedIndex(index);
 					}
 				} else {
 					setSelectedIndex(0);
 				}
+
 				setCurrentSessionPath(null);
 				setSessionData(null);
-				return;
 			}
-
-			return;
 		}
 	});
 

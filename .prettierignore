@@ -1,0 +1,11 @@
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Data
+data/
+
+# Source maps
+*.map

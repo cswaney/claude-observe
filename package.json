@@ -68,15 +68,22 @@
 			"NODE_NO_WARNINGS": "1"
 		},
 		"files": [
-			"source/**/*.test.js"
+			"source/**/*.test.js",
+			"!source/dev/**"
 		]
 	},
 	"xo": {
 		"extends": "xo-react",
 		"prettier": true,
+		"ignores": [
+			"source/dev/**",
+			"test-*.js"
+		],
 		"rules": {
 			"react/prop-types": "off",
-			"unicorn/expiring-todo-comments": "off"
+			"react/react-in-jsx-scope": "off",
+			"unicorn/expiring-todo-comments": "off",
+			"unicorn/filename-case": "off"
 		}
 	},
 	"prettier": "@vdemedes/prettier-config",

@@ -2,17 +2,15 @@
 
 ## Dev
 
-- [ ] Update README
-- [ ] Add CI/CD
+- [x] Update README
+- [x] Add CI/CD
 - [x] Add pre-commit/dev scripts
 - [ ] Ship as binary?
 - [ ] Publishing to npm
-  - Add `prepublishOnly` script to auto-build before publish
-  - Add metadata: description, repository, keywords, author
-  - Create README with installation and usage
-  - Use `npm publish --dry-run` to test
-  - Use `npm version patch|minor|major` to bump version
-  - Publish with `npm publish --access public`
+  - [x] Add `prepublishOnly` script to auto-build before publish
+  - [x] Add metadata: description, repository, keywords, author
+  - [x] Create README with installation and usage
+  - [ ] Create NPM_TOKEN and add it as repo secret
 
 ## Bugs
 

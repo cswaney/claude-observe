@@ -1,4 +1,3 @@
-import process from 'node:process';
 import React from 'react';
 import {Box, Text, useStdout} from 'ink';
 import Gradient from 'ink-gradient';
@@ -6,6 +5,7 @@ import BigText from 'ink-big-text';
 import {TitledBox} from '@mishieck/ink-titled-box';
 import {useScrollableList} from '../../hooks/useScrollableList.js';
 
+// eslint-disable-next-line n/prefer-global/process -- esbuild define requires global process
 const version = process.env.PACKAGE_VERSION || '0.0.0';
 
 function formatLogs(count) {

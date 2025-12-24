@@ -2,11 +2,9 @@
 
 A terminal UI for observing and analyzing Claude conversation logs.
 
-Browse your Claude sessions, inspect messages, view token usage, and explore tool calls—all from the comfort of your terminal.
-
 ## Features
 
-- **Session Browser** - View all your Claude sessions with metadata (project, created/modified dates, token usage)
+- **Session Browser** - View Claude sessions with metadata (project, created/modified dates, number of logs)
 - **Filter & Search** - Filter sessions by project name and search through conversation content
 - **Message Inspector** - Inspect user messages, assistant responses, tool calls, and thinking blocks
 - **Token Analytics** - Track token usage patterns across sessions
@@ -31,22 +29,27 @@ claude-observe
 
 **Session Browser**: Browse and select a session to explore
 
-- `↑/↓`, `u/d` - Navigate sessions
+- `↑/↓` - Navigate sessions
+- `u/d` - Jump 10 sessions up/down
 - `/` - Filter sessions by project
 - `Enter` or `→` - Open selected session
 
 **Session Inspector**: View session data and browse logs
 
-- `↑/↓` or `k/j` - Navigate logs
+- `↑/↓` - Navigate logs
+- `u/d` - Jump 10 logs up/down
+- `←` - Return to session browser
+- `→` - View selected log details
 - `/` - Search logs (e.g., "type:tool_use")
+- `1-5` - Hot key log type filtering
 - `Enter` - Expand content preview
-- `f` - Toggle message type filters (user/assistant/tool/thinking)
 - `Esc` - Back to session browser
 
 **Log Inspector**: View log details
 
 - `↑/↓` - Scroll content
-- `←/→` - Go to previous/next log
+- `←` - Return to session view
+- `Shifrt + ←/→` - Go to previous/next log
 - `Esc` - Back to session browser
 
 ## Data Location
@@ -78,10 +81,17 @@ npm run build && node ./dist/cli.js
 Run tests:
 
 ```bash
-npm test
+npm run test
 ```
 
-Run linting and formatting:
+Run formatting and linting:
+
+```bash
+npm run format
+npm run lint
+```
+
+Prepare to push/publish (format, lint, and test):
 
 ```bash
 npm run check

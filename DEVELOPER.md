@@ -2,6 +2,10 @@
 
 ## Publishing
 
+- Use `npm publish --dry-run` to test
+- Use `npm version patch|minor|major` to bump version
+- Publish with `npm publish --access public`
+
 ### Automated
 
 ```shell

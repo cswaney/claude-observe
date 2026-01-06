@@ -1,4 +1,5 @@
-# claude-observe
+<img width="484" height="254" alt="claude-observe" src="https://github.com/user-attachments/assets/4ba3af32-8828-4fde-9e5a-1e10bf2280fe" />
+
 
 A terminal UI for observing and analyzing Claude conversation logs.
 

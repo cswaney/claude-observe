@@ -3,8 +3,9 @@
 
 A terminal UI for observing and analyzing Claude conversation logs.
 
-## Features
+<img width="576" height="545" alt="Screenshot 2026-01-06 at 3 47 21 PM" src="https://github.com/user-attachments/assets/0380ef2a-d505-4e6a-ac0b-dc826b542f37" />
 
+## Features
 - **Session Browser** - View Claude sessions with metadata (project, created/modified dates, number of logs)
 - **Filter & Search** - Filter sessions by project name and search through conversation content
 - **Message Inspector** - Inspect user messages, assistant responses, tool calls, and thinking blocks

@@ -3,7 +3,8 @@
 
 A terminal UI for observing and analyzing Claude conversation logs.
 
-<img width="576" height="545" alt="Screenshot 2026-01-06 at 3 47 21 PM" src="https://github.com/user-attachments/assets/0380ef2a-d505-4e6a-ac0b-dc826b542f37" />
+<img width="576" height="523" alt="Screenshot 2026-01-06 at 3 47 21 PM" src="https://github.com/user-attachments/assets/baa18d2a-5506-44f7-8719-6260d2b715c3" />
+
 
 ## Features
 - **Session Browser** - View Claude sessions with metadata (project, created/modified dates, number of logs)
